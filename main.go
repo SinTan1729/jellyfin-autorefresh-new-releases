@@ -71,13 +71,14 @@ func main() {
 		idsWithImages[item.ID] = true
 	}
 
-	fmt.Printf("%v: Processing all episodes released in the last two days.\n\n", time.Now().Format(time.RFC1123))
-	var successCount, failCount int
-	for _, item := range dataAll {
-		fmt.Printf("  (%s)\n  %s : %s\n", item.ID, item.Name, item.SeriesName)
+	fmt.Printf("%s: Processing all episodes released in the last two days.\n\n", time.Now().Format(time.RFC1123))
+	var successCount, failCount, skipCount int
+	for i, item := range dataAll {
+		fmt.Printf("  %d. ID:%s\n  %s : %s\n", i+1, item.ID, item.Name, item.SeriesName)
 
 		if idsWithImages[item.ID] {
 			fmt.Printf("  All desired criteria are met. Skipping.\n\n")
+			skipCount++
 			continue
 		} else {
 			fmt.Println("  Some desired criteria are not met. Requesting a refresh.")
@@ -100,6 +101,7 @@ func main() {
 	}
 	// Print a summary
 	fmt.Println("Summary:")
+	fmt.Println("  Skipped:", skipCount)
 	fmt.Println("  Successful refreshes:", successCount)
 	fmt.Println("  Failed refreshes:", failCount)
 	fmt.Printf("----------\n\n")
