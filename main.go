@@ -71,7 +71,7 @@ func main() {
 		idsWithImages[item.ID] = true
 	}
 
-	fmt.Printf("Processing all episodes released in the last two days.\n\n")
+	fmt.Printf("%v: Processing all episodes released in the last two days.\n\n", time.Now().Format(time.RFC1123))
 	var successCount, failCount int
 	firstItem := true
 	for _, item := range dataAll {
@@ -80,7 +80,7 @@ func main() {
 			time.Sleep(time.Second)
 			firstItem = false
 		}
-		fmt.Printf("  %s %s : %s\n", item.ID, item.Name, item.SeriesName)
+		fmt.Printf("  (%s)\n  %s : %s\n", item.ID, item.Name, item.SeriesName)
 
 		if idsWithImages[item.ID] {
 			fmt.Printf("  All desired properties are present. Skipping...\n\n")
@@ -106,6 +106,7 @@ func main() {
 	fmt.Println("Summary:")
 	fmt.Println("  Successful refreshes:", successCount)
 	fmt.Println("  Failed refreshes:", failCount)
+	fmt.Printf("----------\n\n")
 }
 
 func fetchItems(client *http.Client, cfg Config, params url.Values) []Item {
