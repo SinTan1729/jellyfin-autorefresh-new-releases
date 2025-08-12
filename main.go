@@ -36,7 +36,7 @@ func loadConfig() Config {
 	}
 	file, err := os.Open(configDir + "/jellyfin-autorefresh-new-releases/config.json")
 	if err != nil {
-		log.Fatalln("Could not load config from " + configDir + "/chhoto/config.json. Quitting!")
+		log.Fatalln("Could not load config from " + configDir + "/jellyfin-autorefresh-new-releases/config.json. Quitting!")
 	}
 	defer file.Close()
 	var config Config
