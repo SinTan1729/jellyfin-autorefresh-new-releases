@@ -1,3 +1,10 @@
+<!-- SPDX-FileCopyrightText: 2025 Sayantan Santra <sayantan.santra689@gmail.com> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only -->
+
+[![maintainer-badge](https://img.shields.io/badge/maintainer-SinTan1729-blue)](https://github.com/SinTan1729)
+[![latest-release-badge](https://img.shields.io/github/v/release/SinTan1729/jellyfin-autorefresh-new-releases?label=latest%20release)](https://github.com/SinTan1729/jellyfin-autorefresh-new-releases/releases/latest)
+[![license-badge](https://img.shields.io/github/license/SinTan1729/jellyfin-autorefresh-new-releases)](https://spdx.org/licenses/GPL-3.0-only.html)
+
 # Jellyfin Autorefresh New Releases
 
 This is a simple Go application to request refreshes for newly released items in Jellyfin, where some
