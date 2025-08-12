@@ -66,7 +66,7 @@ the following.
 
 It's recommended that you use a local/internal URI for better performance.
 
-With proper config in place, just run `jellyfin-autorefresh`.
+With proper config in place, just run `jellyfin-autorefresh`. You may want to run it periodically using a cronjob or equivalent.
 
 # Notes
 
