@@ -66,6 +66,8 @@ the following.
 
 It's recommended that you use a local/internal URI for better performance.
 
+With proper config in place, just run `jellyfin-autorefresh`.
+
 # Notes
 
 - I haven't used any external packages, everything is written in pure Go, using the Go Standard Library. I'll try to keep it this way.
