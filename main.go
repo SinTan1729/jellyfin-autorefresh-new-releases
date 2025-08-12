@@ -56,15 +56,15 @@ func main() {
 	cutoffDate := time.Now().AddDate(0, 0, -3).Format(time.RFC3339)
 
 	// Get all items released in the last two days
-	params := url.Values{}
-	params.Add("includeItemTypes", "Episode")
-	params.Add("recursive", "true")
-	params.Add("minPremiereDate", cutoffDate)
-	dataAll := fetchItems(client, config, params)
+	queryParams := url.Values{}
+	queryParams.Add("includeItemTypes", "Episode")
+	queryParams.Add("recursive", "true")
+	queryParams.Add("minPremiereDate", cutoffDate)
+	dataAll := fetchItems(client, config, queryParams)
 	// Get only those with proper info
-	params.Add("hasOverview", "true")
-	params.Add("imageTypes", "Primary")
-	dataWithImages := fetchItems(client, config, params)
+	queryParams.Add("hasOverview", "true")
+	queryParams.Add("imageTypes", "Primary")
+	dataWithImages := fetchItems(client, config, queryParams)
 	// Figure out the episodes with missing info
 	idsWithImages := make(map[string]bool)
 	for _, item := range dataWithImages {
@@ -73,22 +73,18 @@ func main() {
 
 	fmt.Printf("%v: Processing all episodes released in the last two days.\n\n", time.Now().Format(time.RFC1123))
 	var successCount, failCount int
-	firstItem := true
 	for _, item := range dataAll {
-		if !firstItem {
-			// Wait a second before the next request to not reach any rate limits
-			time.Sleep(time.Second)
-			firstItem = false
-		}
 		fmt.Printf("  (%s)\n  %s : %s\n", item.ID, item.Name, item.SeriesName)
 
 		if idsWithImages[item.ID] {
-			fmt.Printf("  All desired properties are present. Skipping...\n\n")
+			fmt.Printf("  All desired criteria are met. Skipping.\n\n")
 			continue
 		} else {
-			fmt.Println("  Some desired properties are missing. Requesting a refresh...")
+			fmt.Println("  Some desired criteria are not met. Requesting a refresh.")
 		}
 
+		// Wait a second before the next request to not reach any rate limits
+		time.Sleep(time.Second)
 		if refreshItem(client, config, item.ID) {
 			successCount++
 		} else {
@@ -131,20 +127,20 @@ func fetchItems(client *http.Client, cfg Config, params url.Values) []Item {
 	return parsed.Items
 }
 
-func refreshItem(client *http.Client, cfg Config, id string) bool {
-	params := url.Values{}
-	params.Add("metadataRefreshMode", "FullRefresh")
-	params.Add("imageRefreshMode", "FullRefresh")
-	params.Add("replaceAllMetadata", "true")
-	params.Add("replaceAllImages", "true")
+func refreshItem(client *http.Client, config Config, id string) bool {
+	updateParams := url.Values{}
+	updateParams.Add("metadataRefreshMode", "FullRefresh")
+	updateParams.Add("imageRefreshMode", "FullRefresh")
+	updateParams.Add("replaceAllMetadata", "true")
+	updateParams.Add("replaceAllImages", "true")
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", cfg.BaseURI, id), nil)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.BaseURI, id), nil)
 	if err != nil {
 		log.Println("Request creation failed:", err)
 		return false
 	}
-	req.Header.Set("Authorization", `MediaBrowser Token="`+cfg.Key+`"`)
-	req.URL.RawQuery = params.Encode()
+	req.Header.Set("Authorization", `MediaBrowser Token="`+config.Key+`"`)
+	req.URL.RawQuery = updateParams.Encode()
 
 	resp, err := client.Do(req)
 	if err != nil {
@@ -154,7 +150,20 @@ func refreshItem(client *http.Client, cfg Config, id string) bool {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		fmt.Printf("  Refresh successful!\n\n")
+		// Check if the update was successful
+		queryParams := url.Values{}
+		queryParams.Add("ids", id)
+		queryParams.Add("hasOverview", "true")
+		queryParams.Add("imageTypes", "Primary")
+		// Wait five seconds so that the metadata is actually updated
+		time.Sleep(5 * time.Second)
+		updatedData := fetchItems(client, config, queryParams)
+		fmt.Println("  Refresh successful!")
+		if len(updatedData) > 0 {
+			fmt.Printf("  The episode now satisfies all the desired criteria.\n\n")
+		} else {
+			fmt.Printf("  The desired criteria are still not met. Better luck next time!\n\n")
+		}
 		return true
 	}
 
