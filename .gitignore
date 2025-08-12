@@ -8,6 +8,7 @@
 *.so
 *.dylib
 jellyfin-autorefresh-new-releases
+jellyfin-autorefresh.tar.gz
 jellyfin-autorefresh
 
 # Test binary, built with `go test -c`
