@@ -25,7 +25,7 @@ git clone https://github.com/SinTan1729/jellyfin-autorefresh-new-releases
 2. Install.
 
 ```
-cd chhoto-url-cli
+cd jellyfin-autorefresh-new-releases
 make install
 ```
 
