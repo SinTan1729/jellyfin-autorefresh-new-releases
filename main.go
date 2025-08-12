@@ -71,7 +71,10 @@ func main() {
 		idsWithImages[item.ID] = true
 	}
 
-	fmt.Printf("%s: Processing all episodes released in the last two days.\n\n", time.Now().Format(time.RFC1123))
+	fmt.Println("Jellyfin Autorefresh New Releases (SinTan1729)\n----------")
+	fmt.Println("Starting at", time.Now().Format(time.RFC1123))
+	fmt.Println("Connecting to", config.BaseURI)
+	fmt.Printf("Processing all episodes released in the last two days.\n\n")
 	var successCount, failCount, skipCount int
 	for i, item := range dataAll {
 		fmt.Printf("  %d. ID:%s\n  %s : %s\n", i+1, item.ID, item.Name, item.SeriesName)
