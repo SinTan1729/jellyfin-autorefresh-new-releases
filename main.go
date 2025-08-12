@@ -17,7 +17,7 @@ type Config struct {
 }
 
 type Item struct {
-	Id         string `json:"Id"`
+	ID         string `json:"Id"`
 	Name       string `json:"Name"`
 	SeriesName string `json:"SeriesName"`
 }
@@ -65,35 +65,37 @@ func main() {
 	// Figure out the episodes with missing info
 	idsWithImages := make(map[string]bool)
 	for _, item := range dataWithImages {
-		idsWithImages[item.Id] = true
+		idsWithImages[item.ID] = true
 	}
 
-	var episodesToProcess []Item
-	for _, item := range dataAll {
-		if !idsWithImages[item.Id] {
-			episodesToProcess = append(episodesToProcess, item)
-		}
-	}
-
+	fmt.Printf("Processing all episodes released in the last two days.\n\n")
 	var successCount, failCount int
 	firstItem := true
-	for _, item := range episodesToProcess {
+	for _, item := range dataAll {
 		if !firstItem {
 			// Wait a second before the next request to not reach any rate limits
 			time.Sleep(time.Second)
 			firstItem = false
 		}
-		fmt.Printf("%s %s : %s\n", item.Id, item.Name, item.SeriesName)
+		fmt.Printf("  %s %s : %s\n", item.ID, item.Name, item.SeriesName)
 
-		if refreshItem(client, config, item.Id) {
+		if idsWithImages[item.ID] {
+			fmt.Printf("  All desired properties are present. Skipping...\n\n")
+			continue
+		} else {
+			fmt.Println("  Some desired properties are missing. Requesting a refresh...")
+		}
+
+		if refreshItem(client, config, item.ID) {
 			successCount++
 		} else {
-			fmt.Println("Retrying in 2 seconds...")
+			fmt.Println("  Retrying in 2 seconds...")
 			time.Sleep(2 * time.Second)
-			if refreshItem(client, config, item.Id) {
+			if refreshItem(client, config, item.ID) {
 				successCount++
 			} else {
 				failCount++
+				fmt.Printf("  Not trying again!\n\n")
 			}
 		}
 	}
@@ -148,10 +150,10 @@ func refreshItem(client *http.Client, cfg Config, id string) bool {
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
-		fmt.Println("Refresh success:", resp.Status)
+		fmt.Printf("  Refresh successful!\n\n")
 		return true
 	}
 
-	fmt.Println("Refresh failed:", resp.Status)
+	fmt.Println("  Refresh failed:", resp.Status)
 	return false
 }
