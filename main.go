@@ -5,6 +5,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -89,12 +90,12 @@ func main() {
 
 		// Wait a second before the next request to not reach any rate limits
 		time.Sleep(time.Second)
-		if refreshItem(client, config, item.ID) {
+		if refreshItem(client, config, item.ID) == nil {
 			successCount++
 		} else {
 			fmt.Println("  Retrying in 2 seconds...")
 			time.Sleep(2 * time.Second)
-			if refreshItem(client, config, item.ID) {
+			if refreshItem(client, config, item.ID) == nil {
 				successCount++
 			} else {
 				failCount++
@@ -132,7 +133,7 @@ func fetchItems(client *http.Client, cfg Config, params url.Values) []Item {
 	return parsed.Items
 }
 
-func refreshItem(client *http.Client, config Config, id string) bool {
+func refreshItem(client *http.Client, config Config, id string) error {
 	updateParams := url.Values{}
 	updateParams.Add("metadataRefreshMode", "FullRefresh")
 	updateParams.Add("imageRefreshMode", "FullRefresh")
@@ -141,16 +142,16 @@ func refreshItem(client *http.Client, config Config, id string) bool {
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.BaseURI, id), nil)
 	if err != nil {
-		log.Println("Request creation failed:", err)
-		return false
+		log.Println("  Request creation failed:", err)
+		return err
 	}
 	req.Header.Set("Authorization", `MediaBrowser Token="`+config.Key+`"`)
 	req.URL.RawQuery = updateParams.Encode()
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println("Refresh failed:", err)
-		return false
+		log.Println("  Refresh failed:", err)
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -169,9 +170,9 @@ func refreshItem(client *http.Client, config Config, id string) bool {
 		} else {
 			fmt.Printf("  The desired criteria are still not met. Better luck next time!\n\n")
 		}
-		return true
+		return nil
 	}
 
 	fmt.Println("  Refresh failed:", resp.Status)
-	return false
+	return errors.New(resp.Status)
 }
