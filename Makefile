@@ -15,4 +15,8 @@ uninstall:
 aur: build 
 	tar --transform 's/.*\///g' -czf $(PKGNAME).tar.gz $(PKGNAME) $(PKGNAME).1
 
-.PHONY: build install uninstall aur
+clean:
+	rm -f "${PKGNAME}"
+	rm -f "${PKGNAME}.tar.gz"
+
+.PHONY: build install uninstall aur clean
