@@ -85,7 +85,7 @@ func main() {
 			skipCount++
 			continue
 		} else {
-			fmt.Println("  Some desired criteria are not met. Requesting a refresh.")
+			fmt.Println("  Some desired criteria are not met. Requesting a refresh...")
 		}
 
 		// Wait a second before the next request to not reach any rate limits
@@ -114,21 +114,24 @@ func main() {
 func fetchItems(client *http.Client, cfg Config, params url.Values) []Item {
 	req, err := http.NewRequest("GET", cfg.BaseURI+"/Items", nil)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln(err)
 	}
 	req.Header.Set("Authorization", `MediaBrowser Token="`+cfg.Key+`"`)
 	req.URL.RawQuery = params.Encode()
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatalln(err)
 	}
 	defer resp.Body.Close()
 
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
 	var parsed ItemsResponse
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		log.Fatal(err)
+		log.Fatalln(err)
 	}
 	return parsed.Items
 }
