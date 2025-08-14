@@ -16,8 +16,8 @@ import (
 )
 
 type Config struct {
-	Key     string `json:"key"`
-	BaseURI string `json:"baseURI"`
+	APIKey string `json:"apiKey"`
+	URL    string `json:"jellyfinURL"`
 }
 
 type Item struct {
@@ -40,6 +40,7 @@ func loadConfig() Config {
 		log.Fatalln("Could not load config from " + configDir + "/jellyfin-autorefresh-new-releases/config.json. Quitting!")
 	}
 	defer file.Close()
+
 	var config Config
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&config)
@@ -47,10 +48,19 @@ func loadConfig() Config {
 		log.Fatalln("Error reading config:", err)
 	}
 
+	u, err := url.ParseRequestURI(config.URL)
+	if err != nil || u.Scheme == "" || u.Host == "" {
+		log.Fatalln("Invalid URL was provided!")
+	}
+	if config.APIKey == "" {
+		log.Fatalln("Empty API key was provided!")
+	}
+
 	return config
 }
 
 func main() {
+	log.SetFlags(0)
 	config := loadConfig()
 
 	client := &http.Client{}
@@ -74,7 +84,7 @@ func main() {
 
 	fmt.Println("Jellyfin Autorefresh New Releases (SinTan1729)\n----------")
 	fmt.Println("Starting at", time.Now().Format(time.RFC1123))
-	fmt.Println("Connecting to", config.BaseURI)
+	fmt.Println("Connecting to", config.URL)
 	fmt.Printf("Processing all episodes released in the last two days.\n\n")
 	var successCount, failCount, skipCount int
 	for i, item := range dataAll {
@@ -112,11 +122,11 @@ func main() {
 }
 
 func fetchItems(client *http.Client, cfg Config, params url.Values) []Item {
-	req, err := http.NewRequest("GET", cfg.BaseURI+"/Items", nil)
+	req, err := http.NewRequest("GET", cfg.URL+"/Items", nil)
 	if err != nil {
 		log.Fatalln(err)
 	}
-	req.Header.Set("Authorization", `MediaBrowser Token="`+cfg.Key+`"`)
+	req.Header.Set("Authorization", `MediaBrowser Token="`+cfg.APIKey+`"`)
 	req.URL.RawQuery = params.Encode()
 
 	resp, err := client.Do(req)
@@ -124,6 +134,10 @@ func fetchItems(client *http.Client, cfg Config, params url.Values) []Item {
 		log.Fatalln(err)
 	}
 	defer resp.Body.Close()
+
+	if !isSuccess(resp) {
+		log.Fatalln("Request failed. Please check the API key. \nError:", resp.Status)
+	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -143,12 +157,12 @@ func refreshItem(client *http.Client, config Config, id string) error {
 	updateParams.Add("replaceAllMetadata", "true")
 	updateParams.Add("replaceAllImages", "true")
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.BaseURI, id), nil)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.URL, id), nil)
 	if err != nil {
 		log.Println("  Request creation failed:", err)
 		return err
 	}
-	req.Header.Set("Authorization", `MediaBrowser Token="`+config.Key+`"`)
+	req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
 	req.URL.RawQuery = updateParams.Encode()
 
 	resp, err := client.Do(req)
@@ -158,7 +172,7 @@ func refreshItem(client *http.Client, config Config, id string) error {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+	if isSuccess(resp) {
 		// Check if the update was successful
 		queryParams := url.Values{}
 		queryParams.Add("ids", id)
@@ -178,4 +192,8 @@ func refreshItem(client *http.Client, config Config, id string) error {
 
 	fmt.Println("  Refresh failed:", resp.Status)
 	return errors.New(resp.Status)
+}
+
+func isSuccess(resp *http.Response) bool {
+	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }

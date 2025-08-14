@@ -59,8 +59,8 @@ the following.
 
 ```json
 {
-  "baseURI": "<jellyfin-instance-uri>",
-  "key": "<api-key>"
+  "jellyfinURL": "<jellyfin-instance-uri>",
+  "apiKey": "<api-key>"
 }
 ```
 
