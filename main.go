@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -25,6 +26,7 @@ type Item struct {
 	ID         string `json:"Id"`
 	Name       string `json:"Name"`
 	SeriesName string `json:"SeriesName"`
+	Overview   string `json:"Overview"`
 }
 
 type ImageList struct {
@@ -70,19 +72,14 @@ func main() {
 	config := loadConfig()
 
 	client := &http.Client{}
-	cutoffDate := time.Now().AddDate(0, 0, -3).Format(time.RFC3339)
-
 	// Get all items released in the last two days
 	queryParams := url.Values{}
 	queryParams.Add("includeItemTypes", "Episode")
 	queryParams.Add("recursive", "true")
+	queryParams.Add("fields", "Overview")
+	cutoffDate := time.Now().AddDate(0, 0, -3).Format(time.RFC3339)
 	queryParams.Add("minPremiereDate", cutoffDate)
-	dataAll := fetchItems(client, config, queryParams)
-	// Figure out the episodes with missing info
-	idsWithImages := make(map[string]bool)
-	for _, item := range dataAll {
-		idsWithImages[item.ID] = isItemFine(client, config, item.ID)
-	}
+	dataAll := fetchItems(client, &config, &queryParams)
 
 	fmt.Println("Jellyfin Autorefresh New Releases (SinTan1729)\n----------")
 	fmt.Println("Starting at", time.Now().Format(time.RFC1123))
@@ -92,7 +89,7 @@ func main() {
 	for i, item := range dataAll {
 		fmt.Printf("  %d. ID:%s\n  %s : %s\n", i+1, item.ID, item.Name, item.SeriesName)
 
-		if idsWithImages[item.ID] {
+		if isItemFine(client, &config, &item) {
 			fmt.Printf("  All desired criteria are met. Skipping.\n\n")
 			skipCount++
 			continue
@@ -100,14 +97,12 @@ func main() {
 			fmt.Println("  Some desired criteria are not met. Requesting a refresh...")
 		}
 
-		// Wait a second before the next request to not reach any rate limits
-		time.Sleep(time.Second)
-		if refreshItem(client, config, item.ID) == nil {
+		if refreshItem(client, &config, &item) == nil {
 			successCount++
 		} else {
 			fmt.Println("  Retrying in 2 seconds...")
 			time.Sleep(2 * time.Second)
-			if refreshItem(client, config, item.ID) == nil {
+			if refreshItem(client, &config, &item) == nil {
 				successCount++
 			} else {
 				failCount++
@@ -123,7 +118,7 @@ func main() {
 	fmt.Printf("----------\n\n")
 }
 
-func fetchItems(client *http.Client, cfg Config, params url.Values) []Item {
+func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 	req, err := http.NewRequest("GET", cfg.URL+"/Items", nil)
 	if err != nil {
 		log.Fatalln(err)
@@ -152,8 +147,12 @@ func fetchItems(client *http.Client, cfg Config, params url.Values) []Item {
 	return parsed.Items
 }
 
-func isItemFine(client *http.Client, config Config, id string) bool {
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, id), nil)
+func isItemFine(client *http.Client, config *Config, item *Item) bool {
+	if strings.TrimSpace(item.Overview) == "" {
+		log.Println("  Missing overview.")
+		return false
+	}
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, item.ID), nil)
 	if err != nil {
 		log.Println("  Request creation failed:", err)
 		return false
@@ -161,31 +160,38 @@ func isItemFine(client *http.Client, config Config, id string) bool {
 	req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println("  Error getting info about item", id)
+		log.Println("  Error getting info about item", item)
 		return false
 	}
 	defer resp.Body.Close()
 
-	fineFlag := false
 	if isSuccess(resp) {
 		var images []ImageList
 		json.NewDecoder(resp.Body).Decode(&images)
 		for _, image := range images {
-			fineFlag = image.Type == "Primary" && image.Height >= config.DesiredImageHeight
+			if image.Type == "Primary" {
+				if image.Height < config.DesiredImageHeight {
+					log.Println(" Primary image is of low quality.")
+					return false
+				} else {
+					return true
+				}
+			}
 		}
 	}
 
-	return fineFlag
+	log.Println(" Primary image is missing.")
+	return false
 }
 
-func refreshItem(client *http.Client, config Config, id string) error {
+func refreshItem(client *http.Client, config *Config, item *Item) error {
 	updateParams := url.Values{}
 	updateParams.Add("metadataRefreshMode", "FullRefresh")
 	updateParams.Add("imageRefreshMode", "FullRefresh")
 	updateParams.Add("replaceAllMetadata", "true")
 	updateParams.Add("replaceAllImages", "true")
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.URL, id), nil)
+	req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.URL, item.ID), nil)
 	if err != nil {
 		log.Println("  Request creation failed:", err)
 		return err
@@ -205,7 +211,11 @@ func refreshItem(client *http.Client, config Config, id string) error {
 		time.Sleep(5 * time.Second)
 		// Check if the update was successful
 		fmt.Println("  Refresh successful!")
-		if isItemFine(client, config, id) {
+		queryParams := url.Values{}
+		queryParams.Add("ids", item.ID)
+		queryParams.Add("fields", "Overview")
+		updatedItem := fetchItems(client, config, &queryParams)[0]
+		if isItemFine(client, config, &updatedItem) {
 			fmt.Printf("  The episode now satisfies all the desired criteria.\n\n")
 		} else {
 			fmt.Printf("  The desired criteria are still not met. Better luck next time!\n\n")
