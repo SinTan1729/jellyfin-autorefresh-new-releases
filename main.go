@@ -149,7 +149,7 @@ func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 
 func isItemFine(client *http.Client, config *Config, item *Item) bool {
 	if strings.TrimSpace(item.Overview) == "" {
-		log.Println("  Missing overview.")
+		log.Println("  Overview is missing.")
 		return false
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, item.ID), nil)
@@ -171,7 +171,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) bool {
 		for _, image := range images {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
-					log.Println(" Primary image is of low quality.")
+					log.Println("  Primary image is of low quality.")
 					return false
 				} else {
 					return true
@@ -180,7 +180,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) bool {
 		}
 	}
 
-	log.Println(" Primary image is missing.")
+	log.Println("  Primary image is missing.")
 	return false
 }
 
