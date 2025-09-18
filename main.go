@@ -16,14 +16,20 @@ import (
 )
 
 type Config struct {
-	APIKey string `json:"apiKey"`
-	URL    string `json:"jellyfinURL"`
+	APIKey             string `json:"apiKey"`
+	URL                string `json:"jellyfinURL"`
+	DesiredImageHeight uint16 `json:"desiredImageHeight"`
 }
 
 type Item struct {
 	ID         string `json:"Id"`
 	Name       string `json:"Name"`
 	SeriesName string `json:"SeriesName"`
+}
+
+type ImageList struct {
+	Type   string `json:"ImageType"`
+	Height uint16 `json:"Height"`
 }
 
 type ItemsResponse struct {
@@ -41,7 +47,7 @@ func loadConfig() Config {
 	}
 	defer file.Close()
 
-	var config Config
+	config := Config{DesiredImageHeight: 360} //Default value
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&config)
 	if err != nil {
@@ -72,14 +78,10 @@ func main() {
 	queryParams.Add("recursive", "true")
 	queryParams.Add("minPremiereDate", cutoffDate)
 	dataAll := fetchItems(client, config, queryParams)
-	// Get only those with proper info
-	queryParams.Add("hasOverview", "true")
-	queryParams.Add("imageTypes", "Primary")
-	dataWithImages := fetchItems(client, config, queryParams)
 	// Figure out the episodes with missing info
 	idsWithImages := make(map[string]bool)
-	for _, item := range dataWithImages {
-		idsWithImages[item.ID] = true
+	for _, item := range dataAll {
+		idsWithImages[item.ID] = isItemFine(client, config, item.ID)
 	}
 
 	fmt.Println("Jellyfin Autorefresh New Releases (SinTan1729)\n----------")
@@ -150,6 +152,32 @@ func fetchItems(client *http.Client, cfg Config, params url.Values) []Item {
 	return parsed.Items
 }
 
+func isItemFine(client *http.Client, config Config, id string) bool {
+	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, id), nil)
+	if err != nil {
+		log.Println("  Request creation failed:", err)
+		return false
+	}
+	req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Println("  Error getting info about item", id)
+		return false
+	}
+	defer resp.Body.Close()
+
+	fineFlag := false
+	if isSuccess(resp) {
+		var images []ImageList
+		json.NewDecoder(resp.Body).Decode(&images)
+		for _, image := range images {
+			fineFlag = image.Type == "Primary" && image.Height >= config.DesiredImageHeight
+		}
+	}
+
+	return fineFlag
+}
+
 func refreshItem(client *http.Client, config Config, id string) error {
 	updateParams := url.Values{}
 	updateParams.Add("metadataRefreshMode", "FullRefresh")
@@ -173,16 +201,11 @@ func refreshItem(client *http.Client, config Config, id string) error {
 	defer resp.Body.Close()
 
 	if isSuccess(resp) {
-		// Check if the update was successful
-		queryParams := url.Values{}
-		queryParams.Add("ids", id)
-		queryParams.Add("hasOverview", "true")
-		queryParams.Add("imageTypes", "Primary")
 		// Wait five seconds so that the metadata is actually updated
 		time.Sleep(5 * time.Second)
-		updatedData := fetchItems(client, config, queryParams)
+		// Check if the update was successful
 		fmt.Println("  Refresh successful!")
-		if len(updatedData) > 0 {
+		if isItemFine(client, config, id) {
 			fmt.Printf("  The episode now satisfies all the desired criteria.\n\n")
 		} else {
 			fmt.Printf("  The desired criteria are still not met. Better luck next time!\n\n")

@@ -8,8 +8,10 @@
 # Jellyfin Autorefresh New Releases
 
 This is a simple Go application to request refreshes for newly released items in Jellyfin, where some
-info is missing. Refreshes are requested if image or overview is missing in an episode. It only works
-with episodes released in the last two days. It's mainly meant to work for episodes where TMDB doesn't
+info is missing. Refreshes are requested if overview is missing, image is missing, or image is of low quality.
+Desired image height can be set in the config. Default value is 360.
+
+It only works with episodes released in the last two days. It's mainly meant to work for episodes where TMDB doesn't
 have the information on release.
 
 # Installation
@@ -60,7 +62,8 @@ the following.
 ```json
 {
   "jellyfinURL": "<jellyfin-instance-uri>",
-  "apiKey": "<api-key>"
+  "apiKey": "<api-key>",
+  "desiredImageHeight": <height>
 }
 ```
 
