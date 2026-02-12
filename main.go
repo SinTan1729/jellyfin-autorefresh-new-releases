@@ -149,7 +149,7 @@ func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 
 func isItemFine(client *http.Client, config *Config, item *Item) bool {
 	if strings.TrimSpace(item.Overview) == "" {
-		log.Println("  Overview is missing.")
+		log.Println("    Overview is missing.")
 		return false
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, item.ID), nil)
@@ -171,7 +171,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) bool {
 		for _, image := range images {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
-					log.Println("  Primary image is of low quality.")
+					log.Println("    Primary image is of low quality.")
 					return false
 				} else {
 					return true
@@ -180,7 +180,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) bool {
 		}
 	}
 
-	log.Println("  Primary image is missing.")
+	log.Println("    Primary image is missing.")
 	return false
 }
 
@@ -210,20 +210,21 @@ func refreshItem(client *http.Client, config *Config, item *Item) error {
 		// Wait five seconds so that the metadata is actually updated
 		time.Sleep(5 * time.Second)
 		// Check if the update was successful
-		fmt.Println("  Refresh successful!")
 		queryParams := url.Values{}
 		queryParams.Add("ids", item.ID)
 		queryParams.Add("fields", "Overview")
 		updatedItem := fetchItems(client, config, &queryParams)[0]
 		if isItemFine(client, config, &updatedItem) {
+			fmt.Println("  Refresh successful!")
 			fmt.Printf("  The episode now satisfies all the desired criteria.\n\n")
 			return nil
 		} else {
-			fmt.Printf("  The desired criteria are still not met.\n\n")
+			fmt.Printf("  The desired criteria are still not met.\n")
 		}
+	} else {
+		fmt.Println("  Refresh failed:", resp.Status)
 	}
 
-	fmt.Println("  Refresh failed:", resp.Status)
 	return errors.New(resp.Status)
 }
 
