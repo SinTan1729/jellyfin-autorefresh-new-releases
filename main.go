@@ -106,7 +106,7 @@ func main() {
 				successCount++
 			} else {
 				failCount++
-				fmt.Printf("  Not trying again!\n\n")
+				fmt.Printf("  Better luck next time!\n\n")
 			}
 		}
 	}
@@ -217,10 +217,10 @@ func refreshItem(client *http.Client, config *Config, item *Item) error {
 		updatedItem := fetchItems(client, config, &queryParams)[0]
 		if isItemFine(client, config, &updatedItem) {
 			fmt.Printf("  The episode now satisfies all the desired criteria.\n\n")
+			return nil
 		} else {
-			fmt.Printf("  The desired criteria are still not met. Better luck next time!\n\n")
+			fmt.Printf("  The desired criteria are still not met.\n\n")
 		}
-		return nil
 	}
 
 	fmt.Println("  Refresh failed:", resp.Status)
