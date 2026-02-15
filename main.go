@@ -171,7 +171,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) bool {
 		for _, image := range images {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
-					log.Println("    Primary image is of low quality.")
+					log.Printf("    Primary image is of low (%dp) quality.\n", image.Height)
 					return false
 				} else {
 					return true
@@ -219,13 +219,13 @@ func refreshItem(client *http.Client, config *Config, item *Item) error {
 			fmt.Printf("  The episode now satisfies all the desired criteria.\n\n")
 			return nil
 		} else {
-			fmt.Printf("  The desired criteria are still not met.\n")
+			fmt.Printf("  The desired criteria are still not met.\n\n")
 		}
+		return nil
 	} else {
 		fmt.Println("  Refresh failed:", resp.Status)
+		return errors.New(resp.Status)
 	}
-
-	return errors.New(resp.Status)
 }
 
 func isSuccess(resp *http.Response) bool {
