@@ -97,12 +97,16 @@ func main() {
 			fmt.Println("  Some desired criteria are not met. Requesting a refresh...")
 		}
 
-		if refreshItem(client, &config, &item) == nil {
+		err := refreshItem(client, &config, &item)
+		if err == nil {
 			successCount++
 		} else {
-			fmt.Println("  Retrying in 2 seconds...")
-			time.Sleep(2 * time.Second)
-			if refreshItem(client, &config, &item) == nil {
+			if err.Error() != "No new data." {
+				fmt.Println("  Retrying in 2 seconds...")
+				time.Sleep(2 * time.Second)
+				err = refreshItem(client, &config, &item)
+			}
+			if err == nil {
 				successCount++
 			} else {
 				failCount++
@@ -219,12 +223,12 @@ func refreshItem(client *http.Client, config *Config, item *Item) error {
 			fmt.Printf("  The episode now satisfies all the desired criteria.\n\n")
 			return nil
 		} else {
-			fmt.Printf("  The desired criteria are still not met.\n\n")
+			fmt.Println("  The desired criteria are still not met.")
+			return errors.New("No new data.")
 		}
-		return nil
 	} else {
 		fmt.Println("  Refresh failed:", resp.Status)
-		return errors.New(resp.Status)
+		return errors.New("HTTP Error " + resp.Status)
 	}
 }
 
