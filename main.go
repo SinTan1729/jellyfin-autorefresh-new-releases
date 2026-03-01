@@ -26,6 +26,8 @@ type Item struct {
 	ID         string `json:"Id"`
 	Name       string `json:"Name"`
 	SeriesName string `json:"SeriesName"`
+	SeasonNo   uint16 `json:"ParentIndexNumber"`
+	EpisodeNo  uint16 `json:"IndexNumber"`
 	Overview   string `json:"Overview"`
 }
 
@@ -87,7 +89,8 @@ func main() {
 	fmt.Printf("Processing all episodes released in the last two days.\n\n")
 	var successCount, failCount, skipCount int
 	for i, item := range dataAll {
-		fmt.Printf("  %d. ID:%s\n  %s : %s\n", i+1, item.ID, item.Name, item.SeriesName)
+		fmt.Printf("  %d. ID:%s\n     Series: %s\n     Episode: S%02dE%02d - %s\n",
+			i+1, item.ID, item.SeriesName, item.SeasonNo, item.EpisodeNo, item.Name)
 
 		if isItemFine(client, &config, &item) {
 			fmt.Printf("  All desired criteria are met. Skipping.\n\n")
