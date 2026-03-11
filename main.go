@@ -89,15 +89,15 @@ func main() {
 	fmt.Printf("Processing all episodes released in the last two days.\n\n")
 	var successCount, failCount, skipCount int
 	for i, item := range dataAll {
-		fmt.Printf("  %d. ID:%s\n     Series: %s\n     Episode: S%02dE%02d - %s\n",
+		fmt.Printf(" %02d. ID: %s\n     Series: %s\n     Episode: S%02dE%02d - %s\n",
 			i+1, item.ID, item.SeriesName, item.SeasonNo, item.EpisodeNo, item.Name)
 
 		if isItemFine(client, &config, &item) {
-			fmt.Printf("  All desired criteria are met. Skipping.\n\n")
+			fmt.Printf("     All desired criteria are met. Skipping.\n\n")
 			skipCount++
 			continue
 		} else {
-			fmt.Println("  Some desired criteria are not met. Requesting a refresh...")
+			fmt.Println("     Some desired criteria are not met. Requesting a refresh...")
 		}
 
 		err := refreshItem(client, &config, &item)
@@ -105,7 +105,7 @@ func main() {
 			successCount++
 		} else {
 			if err.Error() != "No new data." {
-				fmt.Println("  Retrying in 2 seconds...")
+				fmt.Println("     Retrying in 2 seconds...")
 				time.Sleep(2 * time.Second)
 				err = refreshItem(client, &config, &item)
 			}
@@ -113,7 +113,7 @@ func main() {
 				successCount++
 			} else {
 				failCount++
-				fmt.Printf("  Better luck next time!\n\n")
+				fmt.Printf("     Better luck next time!\n\n")
 			}
 		}
 	}
@@ -156,7 +156,7 @@ func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 
 func isItemFine(client *http.Client, config *Config, item *Item) bool {
 	if strings.TrimSpace(item.Overview) == "" {
-		log.Println("    Overview is missing.")
+		log.Println("     Overview is missing.")
 		return false
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, item.ID), nil)
@@ -178,7 +178,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) bool {
 		for _, image := range images {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
-					log.Printf("    Primary image is of low (%dp) quality.\n", image.Height)
+					log.Printf("     Primary image is of low (%dp) quality.\n", image.Height)
 					return false
 				} else {
 					return true
@@ -187,7 +187,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) bool {
 		}
 	}
 
-	log.Println("    Primary image is missing.")
+	log.Println("     Primary image is missing.")
 	return false
 }
 
@@ -222,15 +222,15 @@ func refreshItem(client *http.Client, config *Config, item *Item) error {
 		queryParams.Add("fields", "Overview")
 		updatedItem := fetchItems(client, config, &queryParams)[0]
 		if isItemFine(client, config, &updatedItem) {
-			fmt.Println("  Refresh successful!")
-			fmt.Printf("  The episode now satisfies all the desired criteria.\n\n")
+			fmt.Println("     Refresh successful!")
+			fmt.Printf("     The episode now satisfies all the desired criteria.\n\n")
 			return nil
 		} else {
-			fmt.Println("  The desired criteria are still not met.")
+			fmt.Println("     The desired criteria are still not met.")
 			return errors.New("No new data.")
 		}
 	} else {
-		fmt.Println("  Refresh failed:", resp.Status)
+		fmt.Println("     Refresh failed:", resp.Status)
 		return errors.New("HTTP Error " + resp.Status)
 	}
 }
