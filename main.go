@@ -15,6 +15,7 @@ type Config struct {
 	APIKey             string `json:"apiKey"`
 	URL                string `json:"jellyfinURL"`
 	DesiredImageHeight uint16 `json:"desiredImageHeight"`
+	DaysToScan         uint8  `json:"daysToScan"`
 }
 
 type Item struct {
@@ -45,7 +46,7 @@ func main() {
 	queryParams.Add("includeItemTypes", "Episode")
 	queryParams.Add("recursive", "true")
 	queryParams.Add("fields", "Overview")
-	cutoffDate := time.Now().AddDate(0, 0, -3).Format(time.RFC3339)
+	cutoffDate := time.Now().AddDate(0, 0, -int(config.DaysToScan+1)).Format(time.RFC3339)
 	queryParams.Add("minPremiereDate", cutoffDate)
 	dataAll := fetchItems(client, &config, &queryParams)
 

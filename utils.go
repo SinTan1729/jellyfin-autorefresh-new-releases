@@ -27,7 +27,7 @@ func loadConfig() Config {
 	}
 	defer file.Close()
 
-	config := Config{DesiredImageHeight: 360} //Default value
+	config := Config{DesiredImageHeight: 360, DaysToScan: 2} //Default value
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&config)
 	if err != nil {
@@ -40,6 +40,9 @@ func loadConfig() Config {
 	}
 	if config.APIKey == "" {
 		log.Fatalln("Empty API key was provided!")
+	}
+	if config.DaysToScan > 14 {
+		config.DaysToScan = 14 // Sensible upper limit
 	}
 
 	return config

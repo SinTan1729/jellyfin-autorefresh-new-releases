@@ -63,7 +63,8 @@ the following.
 {
   "jellyfinURL": "<jellyfin-instance-uri>",
   "apiKey": "<api-key>",
-  "desiredImageHeight": <height>
+  "desiredImageHeight": <height>,
+  "daysToScan": <days>
 }
 ```
 
