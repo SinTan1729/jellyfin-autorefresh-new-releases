@@ -12,9 +12,16 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 )
+
+var genericTitlePattern = regexp.MustCompile(`(?i)^\s*(episode|folge|épisode|episodio|epis[oó]dio|aflevering)\s*0*\d+\s*$`)
+
+func hasGenericTitle(name string) bool {
+	return genericTitlePattern.MatchString(strings.TrimSpace(name))
+}
 
 func loadConfig() Config {
 	configDir, ok := os.LookupEnv("XDG_CONFIG_HOME")
@@ -80,6 +87,10 @@ func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 func isItemFine(client *http.Client, config *Config, item *Item) bool {
 	if strings.TrimSpace(item.Overview) == "" {
 		log.Println("     Overview is missing.")
+		return false
+	}
+	if hasGenericTitle(item.Name) {
+		log.Println("     Title looks like a generic placeholder.")
 		return false
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, item.ID), nil)
