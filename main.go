@@ -41,7 +41,7 @@ func main() {
 	config := loadConfig()
 
 	client := &http.Client{}
-	// Get all items released in the last two days
+	// Get all items released in the last n days
 	queryParams := url.Values{}
 	queryParams.Add("includeItemTypes", "Episode")
 	queryParams.Add("recursive", "true")
@@ -53,7 +53,7 @@ func main() {
 	fmt.Println("Jellyfin Autorefresh New Releases (SinTan1729)\n----------")
 	fmt.Println("Starting at", time.Now().Format(time.RFC1123))
 	fmt.Println("Connecting to", config.URL)
-	fmt.Printf("Processing all episodes released in the last two days.\n\n")
+	fmt.Printf("Processing all episodes released in the last %d days.\n\n", config.DaysToScan)
 	var successCount, failCount, skipCount int
 	for i, item := range dataAll {
 		fmt.Printf(" %02d. ID: %s\n     Series: %s\n     Episode: S%02dE%02d - %s\n",
