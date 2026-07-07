@@ -8,8 +8,12 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
+	"slices"
 	"time"
 )
+
+var Version = "unknown"
 
 type Config struct {
 	APIKey             string `json:"apiKey"`
@@ -37,6 +41,11 @@ type ItemsResponse struct {
 }
 
 func main() {
+	if len(os.Args) > 1 && slices.Contains([]string{"--version", "-V"}, os.Args[1]) {
+		fmt.Println(Version)
+		return
+	}
+
 	log.SetFlags(0)
 	config := loadConfig()
 
