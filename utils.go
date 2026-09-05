@@ -17,6 +17,17 @@ import (
 	"time"
 )
 
+type RemoteImage struct {
+	ProviderName string `json:"ProviderName"`
+	Url          string `json:"Url"`
+	Width        int    `json:"Width"`
+	Height       int    `json:"Height"`
+	Type         string `json:"Type"`
+}
+type RemoteImagesResponse struct {
+	Images []RemoteImage `json:"Images"`
+}
+
 var genericTitlePattern = regexp.MustCompile(`(?i)^\s*(episode|folge|épisode|episodio|epis[oó]dio|aflevering)\s*0*\d+\s*$`)
 
 func hasGenericTitle(name string) bool {
@@ -125,12 +136,118 @@ func isItemFine(client *http.Client, config *Config, item *Item) bool {
 	return false
 }
 
+func getRemoteImages(
+	client *http.Client,
+	config *Config,
+	item *Item,
+) ([]RemoteImage, error) {
+
+	params := url.Values{}
+	params.Set("Type", "Primary")
+	params.Set("Limit", "100")
+
+	endpoint := fmt.Sprintf(
+		"%s/Items/%s/RemoteImages?%s",
+		config.URL,
+		item.ID,
+		params.Encode(),
+	)
+
+	req, err := http.NewRequest("GET", endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set(
+		"Authorization",
+		`MediaBrowser Token="`+config.APIKey+`"`,
+	)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if !isSuccess(resp) {
+		return nil, fmt.Errorf("HTTP error: %s", resp.Status)
+	}
+
+	var result RemoteImagesResponse
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result.Images, nil
+}
+
+func getBestImage(images []RemoteImage) *RemoteImage {
+	if len(images) == 0 {
+		return nil
+	}
+
+	best := &images[0]
+	bestPixels := best.Width * best.Height
+
+	for i := 1; i < len(images); i++ {
+		pixels := images[i].Width * images[i].Height
+
+		if pixels > bestPixels {
+			best = &images[i]
+			bestPixels = pixels
+		}
+	}
+
+	return best
+}
+
+func setRemoteImage(
+	client *http.Client,
+	config *Config,
+	item *Item,
+	image *RemoteImage,
+) error {
+
+	params := url.Values{}
+
+	params.Set("Type", image.Type)
+	params.Set("ImageUrl", image.Url)
+
+	endpoint := fmt.Sprintf(
+		"%s/Items/%s/RemoteImages/Download?%s",
+		config.URL,
+		item.ID,
+		params.Encode(),
+	)
+
+	req, err := http.NewRequest("POST", endpoint, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set(
+		"Authorization",
+		`MediaBrowser Token="`+config.APIKey+`"`,
+	)
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if !isSuccess(resp) {
+		return fmt.Errorf("HTTP error: %s", resp.Status)
+	}
+
+	return nil
+}
+
 func refreshItem(client *http.Client, config *Config, item *Item) error {
 	updateParams := url.Values{}
 	updateParams.Add("metadataRefreshMode", "FullRefresh")
-	updateParams.Add("imageRefreshMode", "FullRefresh")
 	updateParams.Add("replaceAllMetadata", "true")
-	updateParams.Add("replaceAllImages", "true")
 
 	req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.URL, item.ID), nil)
 	if err != nil {
@@ -146,6 +263,34 @@ func refreshItem(client *http.Client, config *Config, item *Item) error {
 		return err
 	}
 	defer resp.Body.Close()
+
+	images, err := getRemoteImages(client, config, item)
+	if err != nil {
+		return err
+	}
+
+	best := getBestImage(images)
+
+	if best == nil {
+		return errors.New("No remote images found")
+	}
+
+	if best.Width > 0 && best.Height > 0 {
+		fmt.Printf(
+			"     Selected image: %dx%d (%s)\n",
+			best.Width,
+			best.Height,
+			best.ProviderName,
+		)
+	} else {
+		fmt.Printf(
+			"     Selected image: Unknown dimensions (%s)\n",
+			best.ProviderName,
+		)
+	}
+	if err := setRemoteImage(client, config, item, best); err != nil {
+		return err
+	}
 
 	if isSuccess(resp) {
 		// Wait five seconds so that the metadata is actually updated
