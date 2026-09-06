@@ -17,6 +17,16 @@ import (
 	"time"
 )
 
+type BadItem int
+
+const (
+	FineItem    BadItem = 0
+	BadOverview BadItem = 1
+	BadTitle    BadItem = 2
+	BadImage    BadItem = 3
+	BadAll      BadItem = 4
+)
+
 type RemoteImage struct {
 	ProviderName string `json:"ProviderName"`
 	Url          string `json:"Url"`
@@ -95,25 +105,30 @@ func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 	return parsed.Items
 }
 
-func isItemFine(client *http.Client, config *Config, item *Item) bool {
+func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
+	itemStatus := FineItem
 	if strings.TrimSpace(item.Overview) == "" {
 		log.Println("     Overview is missing.")
-		return false
+		itemStatus = BadOverview
 	}
 	if hasGenericTitle(item.Name) {
 		log.Println("     Title looks like a generic placeholder.")
-		return false
+		itemStatus = BadTitle
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, item.ID), nil)
 	if err != nil {
 		log.Println("  Request creation failed:", err)
-		return false
+		if itemStatus == FineItem {
+			itemStatus = BadImage
+		} else {
+			itemStatus = BadAll
+		}
 	}
 	req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Println("  Error getting info about item", item)
-		return false
+		itemStatus = BadTitle
 	}
 	defer resp.Body.Close()
 
@@ -124,16 +139,21 @@ func isItemFine(client *http.Client, config *Config, item *Item) bool {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
 					log.Printf("     Primary image is of low (%dp) quality.\n", image.Height)
-					return false
+					if itemStatus == FineItem {
+						itemStatus = BadImage
+					} else {
+						itemStatus = BadAll
+					}
 				} else {
-					return true
+					itemStatus = FineItem
 				}
 			}
 		}
+	} else {
+		log.Println("     Primary image is missing.")
 	}
 
-	log.Println("     Primary image is missing.")
-	return false
+	return itemStatus
 }
 
 func getRemoteImages(
@@ -244,55 +264,65 @@ func setRemoteImage(
 	return nil
 }
 
-func refreshItem(client *http.Client, config *Config, item *Item) error {
-	updateParams := url.Values{}
-	updateParams.Add("metadataRefreshMode", "FullRefresh")
-	updateParams.Add("replaceAllMetadata", "true")
+func refreshItem(client *http.Client, config *Config, item *Item, itemStatus BadItem) error {
+	needToCheck := false
+	respStatus := "ok"
 
-	req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.URL, item.ID), nil)
-	if err != nil {
-		log.Println("  Request creation failed:", err)
-		return err
-	}
-	req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
-	req.URL.RawQuery = updateParams.Encode()
+	if itemStatus == BadTitle || itemStatus == BadOverview {
+		updateParams := url.Values{}
+		updateParams.Add("metadataRefreshMode", "FullRefresh")
+		updateParams.Add("replaceAllMetadata", "true")
 
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Println("  Refresh failed:", err)
-		return err
-	}
-	defer resp.Body.Close()
+		req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.URL, item.ID), nil)
+		if err != nil {
+			log.Println("  Request creation failed:", err)
+			return err
+		}
+		req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
+		req.URL.RawQuery = updateParams.Encode()
 
-	images, err := getRemoteImages(client, config, item)
-	if err != nil {
-		return err
-	}
-
-	best := getBestImage(images)
-
-	if best == nil {
-		return errors.New("No remote images found")
+		resp, err := client.Do(req)
+		if err != nil {
+			log.Println("  Refresh failed:", err)
+			return err
+		}
+		defer resp.Body.Close()
+		needToCheck = isSuccess(resp)
+		respStatus = resp.Status
 	}
 
-	if best.Width > 0 && best.Height > 0 {
-		fmt.Printf(
-			"     Selected image: %dx%d (%s)\n",
-			best.Width,
-			best.Height,
-			best.ProviderName,
-		)
-	} else {
-		fmt.Printf(
-			"     Selected image: Unknown dimensions (%s)\n",
-			best.ProviderName,
-		)
-	}
-	if err := setRemoteImage(client, config, item, best); err != nil {
-		return err
+	if itemStatus == BadImage {
+		images, err := getRemoteImages(client, config, item)
+		if err != nil {
+			return err
+		}
+
+		best := getBestImage(images)
+
+		if best == nil {
+			return errors.New("No remote images found")
+		}
+
+		if best.Width > 0 && best.Height > 0 {
+			fmt.Printf(
+				"     Selected image: %dx%d (%s)\n",
+				best.Width,
+				best.Height,
+				best.ProviderName,
+			)
+		} else {
+			fmt.Printf(
+				"     Selected image: Unknown dimensions (%s)\n",
+				best.ProviderName,
+			)
+		}
+		if err := setRemoteImage(client, config, item, best); err != nil {
+			return err
+		}
+		needToCheck = true
 	}
 
-	if isSuccess(resp) {
+	if needToCheck {
 		// Wait five seconds so that the metadata is actually updated
 		time.Sleep(5 * time.Second)
 		// Check if the update was successful
@@ -300,7 +330,7 @@ func refreshItem(client *http.Client, config *Config, item *Item) error {
 		queryParams.Add("ids", item.ID)
 		queryParams.Add("fields", "Overview")
 		updatedItem := fetchItems(client, config, &queryParams)[0]
-		if isItemFine(client, config, &updatedItem) {
+		if isItemFine(client, config, &updatedItem) == FineItem {
 			fmt.Println("     Refresh successful!")
 			fmt.Printf("     The episode now satisfies all the desired criteria.\n\n")
 			return nil
@@ -309,8 +339,8 @@ func refreshItem(client *http.Client, config *Config, item *Item) error {
 			return errors.New("No new data.")
 		}
 	} else {
-		fmt.Println("     Refresh failed:", resp.Status)
-		return errors.New("HTTP Error " + resp.Status)
+		fmt.Println("     Refresh failed:", respStatus)
+		return errors.New("HTTP Error " + respStatus)
 	}
 }
 

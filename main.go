@@ -68,7 +68,8 @@ func main() {
 		fmt.Printf(" %02d. ID: %s\n     Series: %s\n     Episode: S%02dE%02d - %s\n",
 			i+1, item.ID, item.SeriesName, item.SeasonNo, item.EpisodeNo, item.Name)
 
-		if isItemFine(client, &config, &item) {
+		itemStatus := isItemFine(client, &config, &item)
+		if itemStatus == FineItem {
 			fmt.Printf("     All desired criteria are met. Skipping.\n\n")
 			skipCount++
 			continue
@@ -76,14 +77,14 @@ func main() {
 			fmt.Println("     Some desired criteria are not met. Requesting a refresh...")
 		}
 
-		err := refreshItem(client, &config, &item)
+		err := refreshItem(client, &config, &item, itemStatus)
 		if err == nil {
 			successCount++
 		} else {
 			if err.Error() != "No new data." {
 				fmt.Println("     Retrying in 2 seconds...")
 				time.Sleep(2 * time.Second)
-				err = refreshItem(client, &config, &item)
+				err = refreshItem(client, &config, &item, itemStatus)
 			}
 			if err == nil {
 				successCount++
