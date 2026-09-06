@@ -268,7 +268,7 @@ func refreshItem(client *http.Client, config *Config, item *Item, itemStatus Bad
 	needToCheck := false
 	respStatus := "ok"
 
-	if itemStatus == BadTitle || itemStatus == BadOverview {
+	if itemStatus == BadTitle || itemStatus == BadOverview || itemStatus == BadAll {
 		updateParams := url.Values{}
 		updateParams.Add("metadataRefreshMode", "FullRefresh")
 		updateParams.Add("replaceAllMetadata", "true")
@@ -291,7 +291,7 @@ func refreshItem(client *http.Client, config *Config, item *Item, itemStatus Bad
 		respStatus = resp.Status
 	}
 
-	if itemStatus == BadImage {
+	if itemStatus == BadImage || itemStatus == BadAll {
 		images, err := getRemoteImages(client, config, item)
 		if err != nil {
 			return err
