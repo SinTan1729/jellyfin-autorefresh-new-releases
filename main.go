@@ -34,6 +34,7 @@ type Item struct {
 type ImageList struct {
 	Type   string `json:"ImageType"`
 	Height uint16 `json:"Height"`
+	Width  uint16 `json:"Width"`
 }
 
 type ItemsResponse struct {
