@@ -41,14 +41,8 @@ Use the AUR package [`jellyfin-autorefresh-new-releases-bin`](https://aur.archli
 
 This should (at least in theory) work for every distro, and should be similar to AUR in terms of experience.
 
-1. Install `LURE` from [lure.sh](https://lure.sh).
-2. Add my personal repo to it.
-
-```
-lure addrepo -n SinTan1729 -u https://github.com/SinTan1729/lure-repo
-```
-
-3. Install `jellyfin-autorefresh-new-releases`
+1. Install `LURE` [from my fork](https://github.com/SinTan1729/lure#installation).
+1. Install `jellyfin-autorefresh-new-releases`
 
 ```
 lure in jellyfin-autorefresh-new-releases
