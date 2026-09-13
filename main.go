@@ -41,6 +41,13 @@ type ItemsResponse struct {
 	Items []Item `json:"Items"`
 }
 
+const (
+	Reset = "\033[0m"
+	Red   = "\033[31m"
+	Green = "\033[32m"
+	Blue  = "\033[34m"
+)
+
 func main() {
 	if len(os.Args) > 1 && slices.Contains([]string{"--version", "-V"}, os.Args[1]) {
 		fmt.Println(Version)
@@ -60,10 +67,10 @@ func main() {
 	queryParams.Add("minPremiereDate", cutoffDate)
 	dataAll := fetchItems(client, &config, &queryParams)
 
-	fmt.Println("Jellyfin Autorefresh New Releases (SinTan1729)\n----------")
-	fmt.Println("Starting at", time.Now().Format(time.RFC1123))
-	fmt.Println("Connecting to", config.URL)
-	fmt.Printf("Processing all episodes released in the last %d days.\n\n", config.DaysToScan)
+	fmt.Println(Blue + "Jellyfin Autorefresh New Releases (SinTan1729)\n----------" + Reset)
+	fmt.Println(Blue+"Starting at", time.Now().Format(time.RFC1123)+Reset)
+	fmt.Println(Blue+"Connecting to", config.URL+Reset)
+	fmt.Printf(Blue+"Processing all episodes released in the last %d days.\n\n"+Reset, config.DaysToScan)
 	var successCount, failCount, skipCount int
 	for i, item := range dataAll {
 		fmt.Printf(" %02d. ID: %s\n     Series: %s\n     Episode: S%02dE%02d - %s\n",
@@ -71,11 +78,11 @@ func main() {
 
 		itemStatus := isItemFine(client, &config, &item)
 		if itemStatus == FineItem {
-			fmt.Printf("     All desired criteria are met. Skipping.\n\n")
+			fmt.Printf(Green + "     All desired criteria are met. Skipping.\n\n" + Reset)
 			skipCount++
 			continue
 		} else {
-			fmt.Println("     Some desired criteria are not met. Requesting a refresh...")
+			fmt.Println(Red + "     Some desired criteria are not met. Requesting a refresh..." + Reset)
 		}
 
 		err := refreshItem(client, &config, &item, itemStatus)
@@ -96,9 +103,9 @@ func main() {
 		}
 	}
 	// Print a summary
-	fmt.Println("Summary:")
-	fmt.Println("  Skipped:", skipCount)
-	fmt.Println("  Successful refreshes:", successCount)
-	fmt.Println("  Failed refreshes:", failCount)
-	fmt.Printf("----------\n\n")
+	fmt.Println(Blue + "Summary:" + Reset)
+	fmt.Println(Blue+"  Skipped:", skipCount, Reset)
+	fmt.Println(Blue+"  Successful refreshes:", successCount, Reset)
+	fmt.Println(Blue+"  Failed refreshes:", failCount, Reset)
+	fmt.Printf(Blue + "----------\n\n")
 }

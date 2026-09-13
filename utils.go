@@ -109,16 +109,16 @@ func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 	itemStatus := FineItem
 	if hasGenericTitle(item.Name) {
-		log.Println("     Title looks like a generic placeholder.")
+		log.Println(Red + "     Title looks like a generic placeholder." + Reset)
 		itemStatus = BadTitle
 	}
 	if strings.TrimSpace(item.Overview) == "" {
-		log.Println("     Overview is missing.")
+		log.Println(Red + "     Overview is missing." + Reset)
 		itemStatus = BadOverview
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, item.ID), nil)
 	if err != nil {
-		log.Println("  Request creation failed:", err)
+		log.Println(Red+"  Request creation failed:", err, Reset)
 		if itemStatus == FineItem {
 			itemStatus = BadImage
 		} else {
@@ -128,7 +128,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 	req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println("  Error getting info about item", item)
+		log.Println(Red+"  Error getting info about item", item, Reset)
 		itemStatus = BadTitle
 	}
 	defer resp.Body.Close()
@@ -137,13 +137,13 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 		var images []ImageList
 		json.NewDecoder(resp.Body).Decode(&images)
 		if len(images) <= 0 {
-			log.Println("     Primary image is missing.")
+			log.Println(Red + "     Primary image is missing." + Reset)
 			itemStatus = BadImage
 		}
 		for _, image := range images {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
-					log.Printf("     Primary image is of low quality (%dx%d).\n", image.Width, image.Height)
+					log.Printf(Red+"     Primary image is of low quality (%dx%d).\n"+Reset, image.Width, image.Height)
 					if itemStatus == FineItem {
 						itemStatus = BadImage
 					} else {
@@ -156,7 +156,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 			}
 		}
 	} else {
-		log.Println("     Primary image is missing.")
+		log.Println(Red + "     Primary image is missing." + Reset)
 		itemStatus = BadImage
 	}
 
@@ -292,7 +292,7 @@ func refreshItem(client *http.Client, config *Config, item *Item, itemStatus Bad
 
 		req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.URL, item.ID), nil)
 		if err != nil {
-			log.Println("  Request creation failed:", err)
+			log.Println(Red+"  Request creation failed:", err, Reset)
 			return err
 		}
 		req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
@@ -300,7 +300,7 @@ func refreshItem(client *http.Client, config *Config, item *Item, itemStatus Bad
 
 		resp, err := client.Do(req)
 		if err != nil {
-			log.Println("  Refresh failed:", err)
+			log.Println(Red+"  Refresh failed:", err, Reset)
 			return err
 		}
 		defer resp.Body.Close()
@@ -317,6 +317,7 @@ func refreshItem(client *http.Client, config *Config, item *Item, itemStatus Bad
 		best := getBestImage(images)
 
 		if best == nil {
+			log.Println(Red + "    No remote images found." + Reset)
 			return errors.New("No remote images found")
 		}
 
@@ -349,14 +350,14 @@ func refreshItem(client *http.Client, config *Config, item *Item, itemStatus Bad
 		updatedItem := fetchItems(client, config, &queryParams)[0]
 		if isItemFine(client, config, &updatedItem) == FineItem {
 			fmt.Println("     Refresh successful!")
-			fmt.Printf("     The episode now satisfies all the desired criteria.\n\n")
+			fmt.Println(Green + "     The episode now satisfies all the desired criteria.\n" + Reset)
 			return nil
 		} else {
-			fmt.Println("     The desired criteria are still not met.")
+			fmt.Println(Red + "     The desired criteria are still not met." + Reset)
 			return errors.New("No new data.")
 		}
 	} else {
-		fmt.Println("     Refresh failed:", respStatus)
+		fmt.Println(Red+"     Refresh failed:", respStatus, Reset)
 		return errors.New("HTTP Error " + respStatus)
 	}
 }
