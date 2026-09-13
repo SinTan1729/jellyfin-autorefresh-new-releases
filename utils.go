@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"os"
@@ -217,6 +218,10 @@ func getBestImage(images []RemoteImage) *RemoteImage {
 			best = &images[i]
 			bestPixels = pixels
 		}
+	}
+
+	if bestPixels == 0 {
+		return &images[rand.Intn(len(images))]
 	}
 
 	return best
