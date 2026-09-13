@@ -136,6 +136,10 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 	if isSuccess(resp) {
 		var images []ImageList
 		json.NewDecoder(resp.Body).Decode(&images)
+		if len(images) <= 0 {
+			log.Println("     Primary image is missing.")
+			itemStatus = BadImage
+		}
 		for _, image := range images {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
@@ -147,11 +151,13 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 					}
 				} else {
 					itemStatus = FineItem
+					break
 				}
 			}
 		}
 	} else {
 		log.Println("     Primary image is missing.")
+		itemStatus = BadImage
 	}
 
 	return itemStatus
@@ -211,16 +217,22 @@ func getBestImage(images []RemoteImage) *RemoteImage {
 	best := &images[0]
 	bestPixels := best.Width * best.Height
 
-	for i := 1; i < len(images); i++ {
-		pixels := images[i].Width * images[i].Height
-
+	var tmdbImages []*RemoteImage
+	for _, image := range images {
+		pixels := image.Width * image.Height
 		if pixels > bestPixels {
-			best = &images[i]
+			best = &image
 			bestPixels = pixels
+		}
+		if image.ProviderName == "TheMovieDb" {
+			tmdbImages = append(tmdbImages, &image)
 		}
 	}
 
 	if bestPixels == 0 {
+		if len(tmdbImages) > 0 {
+			return tmdbImages[rand.Intn(len(tmdbImages))]
+		}
 		return &images[rand.Intn(len(images))]
 	}
 
