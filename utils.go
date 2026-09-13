@@ -108,13 +108,13 @@ func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 
 func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 	itemStatus := FineItem
-	if strings.TrimSpace(item.Overview) == "" {
-		log.Println("     Overview is missing.")
-		itemStatus = BadOverview
-	}
 	if hasGenericTitle(item.Name) {
 		log.Println("     Title looks like a generic placeholder.")
 		itemStatus = BadTitle
+	}
+	if strings.TrimSpace(item.Overview) == "" {
+		log.Println("     Overview is missing.")
+		itemStatus = BadOverview
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, item.ID), nil)
 	if err != nil {
