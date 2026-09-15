@@ -67,7 +67,8 @@ func main() {
 	queryParams.Add("minPremiereDate", cutoffDate)
 	dataAll := fetchItems(client, &config, &queryParams)
 
-	fmt.Println(Blue + "Jellyfin Autorefresh New Releases (SinTan1729)\n----------" + Reset)
+	fmt.Println(Blue + "Jellyfin Autorefresh New Releases (SinTan1729)" + Reset)
+	fmt.Println(Blue + "https://github.com/SinTan1729/jellyfin-autorefresh-new-releases\n----------" + Reset)
 	fmt.Println(Blue+"Starting at", time.Now().Format(time.RFC1123)+Reset)
 	fmt.Println(Blue+"Connecting to", config.URL+Reset)
 	fmt.Printf(Blue+"Processing all episodes released in the last %d days.\n\n"+Reset, config.DaysToScan)
