@@ -20,4 +20,8 @@ clean:
 	rm -f "${PKGNAME}"
 	rm -f "${PKGNAME}.tar.gz"
 
-.PHONY: build install uninstall aur clean
+release: aur
+	gh release create "$$(git tag --list | tail -1)" --notes "$$(git-cliff --latest)" "$(PKGNAME).tar.gz"
+	$(MAKE) clean
+
+.PHONY: build install uninstall aur clean release
