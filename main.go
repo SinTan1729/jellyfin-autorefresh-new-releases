@@ -23,13 +23,13 @@ type Config struct {
 }
 
 type Item struct {
-	ID           string    `json:"Id"`
-	Name         string    `json:"Name"`
-	SeriesName   string    `json:"SeriesName"`
-	SeasonNo     uint16    `json:"ParentIndexNumber"`
-	EpisodeNo    uint16    `json:"IndexNumber"`
-	Overview     string    `json:"Overview"`
-	PremiereDate time.Time `json:"PremiereDate"`
+	ID           string     `json:"Id"`
+	Name         string     `json:"Name"`
+	SeriesName   string     `json:"SeriesName"`
+	SeasonNo     uint16     `json:"ParentIndexNumber"`
+	EpisodeNo    uint16     `json:"IndexNumber"`
+	Overview     string     `json:"Overview"`
+	PremiereDate *time.Time `json:"PremiereDate"`
 }
 
 type ImageList struct {
@@ -75,8 +75,11 @@ func main() {
 	fmt.Printf(Blue+"Processing all episodes released in the last %d days.\n\n"+Reset, config.DaysToScan)
 	var successCount, failCount, skipCount int
 	for i, item := range dataAll {
-		fmt.Printf(" %02d. ID: %s\n     Series: %s\n     Episode: S%02dE%02d - %s\n     Release Date: %s\n",
-			i+1, item.ID, item.SeriesName, item.SeasonNo, item.EpisodeNo, item.Name, item.PremiereDate.Local().Format("Monday, Jan 2"))
+		fmt.Printf(" %02d. ID: %s\n     Series: %s\n     Episode: S%02dE%02d - %s\n",
+			i+1, item.ID, item.SeriesName, item.SeasonNo, item.EpisodeNo, item.Name)
+		if item.PremiereDate != nil {
+			fmt.Printf("     Release Date: %s\n", item.PremiereDate.Local().Format("Monday, Jan 2"))
+		}
 
 		itemStatus := isItemFine(client, &config, &item)
 		if itemStatus == FineItem {
