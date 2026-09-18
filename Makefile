@@ -1,6 +1,6 @@
 PREFIX := /usr/local
 PKGNAME := jellyfin-autorefresh
-GIT_VERSION :=  $(shell git tag --list | tail -1)
+GIT_VERSION :=  $(shell git describe --tags --abbrev=0)
 
 build:
 	go build -ldflags="-s -w -X 'main.Version=${GIT_VERSION}'" -o ${PKGNAME}
@@ -21,7 +21,7 @@ clean:
 	rm -f "${PKGNAME}.tar.gz"
 
 release: aur
-	gh release create "$$(git tag --list | tail -1)" --notes "$$(git-cliff --latest)" "$(PKGNAME).tar.gz"
+	gh release create "${GIT_VERSION}" --notes "$$(git-cliff --latest)" "$(PKGNAME).tar.gz"
 	$(MAKE) clean
 
 .PHONY: build install uninstall aur clean release
