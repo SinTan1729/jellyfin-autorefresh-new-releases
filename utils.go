@@ -143,7 +143,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 		for _, image := range images {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
-					log.Printf(Red+"     Primary image is of low quality (%dx%d).\n"+Reset, image.Width, image.Height)
+					log.Printf(Red+"     Primary image is of low quality (%dx%d)."+Reset, image.Width, image.Height)
 					if itemStatus == FineItem {
 						itemStatus = BadImage
 					} else {
