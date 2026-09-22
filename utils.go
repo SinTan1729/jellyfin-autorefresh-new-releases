@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 )
@@ -103,7 +104,12 @@ func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		log.Fatalln(err)
 	}
-	return parsed.Items
+
+	items := parsed.Items
+	slices.SortFunc(parsed.Items, func(a, b Item) int {
+		return a.PremiereDate.Compare(*b.PremiereDate)
+	})
+	return items
 }
 
 func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
