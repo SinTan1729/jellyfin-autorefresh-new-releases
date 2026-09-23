@@ -112,5 +112,4 @@ func main() {
 	fmt.Println(Blue+"  Skipped:", skipCount, Reset)
 	fmt.Println(Blue+"  Successful refreshes:", successCount, Reset)
 	fmt.Println(Blue+"  Failed refreshes:", failCount, Reset)
-	fmt.Printf(Blue + "----------\n\n")
 }
