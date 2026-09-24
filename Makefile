@@ -20,6 +20,7 @@ clean:
 	rm -f "${PKGNAME}"
 	rm -f "${PKGNAME}.tar.gz"
 
+GH_TOKEN := $(shell cat ~/.config/github_token)
 release: aur
 	gh release create "${GIT_VERSION}" --notes "$$(git-cliff --latest)" "$(PKGNAME).tar.gz"
 	$(MAKE) clean
