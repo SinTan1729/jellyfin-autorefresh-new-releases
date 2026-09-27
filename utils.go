@@ -113,6 +113,14 @@ func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 }
 
 func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
+	escalateBadness := func(item *BadItem) BadItem {
+		if *item == FineItem {
+			return BadImage
+		} else {
+			return BadAll
+		}
+	}
+
 	itemStatus := FineItem
 	if hasGenericTitle(item.Name) {
 		log.Println(Red + "     Title looks like a generic placeholder." + Reset)
@@ -125,17 +133,13 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, item.ID), nil)
 	if err != nil {
 		log.Println(Red+"  Request creation failed:", err, Reset)
-		if itemStatus == FineItem {
-			itemStatus = BadImage
-		} else {
-			itemStatus = BadAll
-		}
+		itemStatus = escalateBadness(&itemStatus)
 	}
 	req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Println(Red+"  Error getting info about item", item, Reset)
-		itemStatus = BadTitle
+		log.Println(Red+"  Error getting item images", item, Reset)
+		itemStatus = escalateBadness(&itemStatus)
 	}
 	defer resp.Body.Close()
 
@@ -150,20 +154,15 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
 					log.Printf(Red+"     Primary image is of low quality (%dx%d)."+Reset, image.Width, image.Height)
-					if itemStatus == FineItem {
-						itemStatus = BadImage
-					} else {
-						itemStatus = BadAll
-					}
+					itemStatus = escalateBadness(&itemStatus)
 				} else {
-					itemStatus = FineItem
 					break
 				}
 			}
 		}
 	} else {
 		log.Println(Red + "     Primary image is missing." + Reset)
-		itemStatus = BadImage
+		itemStatus = escalateBadness(&itemStatus)
 	}
 
 	return itemStatus
@@ -291,7 +290,7 @@ func refreshItem(client *http.Client, config *Config, item *Item, itemStatus Bad
 	needToCheck := false
 	respStatus := "ok"
 
-	if itemStatus == BadTitle || itemStatus == BadOverview || itemStatus == BadAll {
+	if slices.Contains([]BadItem{BadTitle, BadOverview, BadAll}, itemStatus) {
 		updateParams := url.Values{}
 		updateParams.Add("metadataRefreshMode", "FullRefresh")
 		updateParams.Add("replaceAllMetadata", "true")
@@ -314,7 +313,7 @@ func refreshItem(client *http.Client, config *Config, item *Item, itemStatus Bad
 		respStatus = resp.Status
 	}
 
-	if itemStatus == BadImage || itemStatus == BadAll {
+	if slices.Contains([]BadItem{BadImage, BadAll}, itemStatus) {
 		images, err := getRemoteImages(client, config, item)
 		if err != nil {
 			return err
