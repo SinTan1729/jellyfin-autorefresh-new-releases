@@ -15,41 +15,6 @@ import (
 
 var Version = "unknown"
 
-type Config struct {
-	APIKey             string `json:"apiKey"`
-	URL                string `json:"jellyfinURL"`
-	DesiredImageHeight uint32 `json:"desiredImageHeight"`
-	DaysToScan         uint8  `json:"daysToScan"`
-}
-
-type Item struct {
-	ID           string     `json:"Id"`
-	Name         string     `json:"Name"`
-	SeriesName   string     `json:"SeriesName"`
-	SeasonNo     uint8      `json:"ParentIndexNumber"`
-	EpisodeNo    uint16     `json:"IndexNumber"`
-	Overview     string     `json:"Overview"`
-	PremiereDate *time.Time `json:"PremiereDate"`
-}
-
-type ImageList struct {
-	Type   string `json:"ImageType"`
-	Height uint32 `json:"Height"`
-	Width  uint32 `json:"Width"`
-	Size   uint32 `json:"Size"`
-}
-
-type ItemsResponse struct {
-	Items []Item `json:"Items"`
-}
-
-const (
-	Reset = "\033[0m"
-	Red   = "\033[31m"
-	Green = "\033[32m"
-	Blue  = "\033[34m"
-)
-
 func main() {
 	if len(os.Args) > 1 && slices.Contains([]string{"--version", "-V"}, os.Args[1]) {
 		fmt.Println(Version)

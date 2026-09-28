@@ -19,34 +19,13 @@ import (
 	"time"
 )
 
-type BadItem int
-
-const (
-	FineItem    BadItem = 0
-	BadOverview BadItem = 1
-	BadTitle    BadItem = 2
-	BadImage    BadItem = 3
-	BadAll      BadItem = 4
-)
-
-type RemoteImage struct {
-	ProviderName string `json:"ProviderName"`
-	Url          string `json:"Url"`
-	Width        uint16 `json:"Width"`
-	Height       uint16 `json:"Height"`
-	Type         string `json:"Type"`
-}
-type RemoteImagesResponse struct {
-	Images []RemoteImage `json:"Images"`
-}
-
 var genericTitlePattern = regexp.MustCompile(`(?i)^\s*(episode|folge|épisode|episodio|epis[oó]dio|aflevering)\s*0*\d+\s*$`)
 
 func hasGenericTitle(name string) bool {
 	return genericTitlePattern.MatchString(strings.TrimSpace(name))
 }
 
-func loadConfig() Config {
+func loadConfig() config {
 	configDir, ok := os.LookupEnv("XDG_CONFIG_HOME")
 	if !ok {
 		configDir = "~/.config"
@@ -57,7 +36,7 @@ func loadConfig() Config {
 	}
 	defer file.Close()
 
-	config := Config{DesiredImageHeight: 360, DaysToScan: 2} //Default value
+	config := config{DesiredImageHeight: 360, DaysToScan: 2} //Default value
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&config)
 	if err != nil {
@@ -78,7 +57,7 @@ func loadConfig() Config {
 	return config
 }
 
-func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
+func fetchItems(client *http.Client, cfg *config, params *url.Values) []item {
 	req, err := http.NewRequest("GET", cfg.URL+"/Items", nil)
 	if err != nil {
 		log.Fatalln(err)
@@ -100,20 +79,20 @@ func fetchItems(client *http.Client, cfg *Config, params *url.Values) []Item {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	var parsed ItemsResponse
+	var parsed itemsResponse
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		log.Fatalln(err)
 	}
 
 	items := parsed.Items
-	slices.SortFunc(parsed.Items, func(a, b Item) int {
+	slices.SortFunc(parsed.Items, func(a, b item) int {
 		return a.PremiereDate.Compare(*b.PremiereDate)
 	})
 	return items
 }
 
-func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
-	escalateBadness := func(item *BadItem) BadItem {
+func isItemFine(client *http.Client, config *config, item *item) badItem {
+	escalateBadness := func(item *badItem) badItem {
 		if *item == FineItem {
 			return BadImage
 		} else {
@@ -144,7 +123,7 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 	defer resp.Body.Close()
 
 	if isSuccess(resp) {
-		var images []ImageList
+		var images []itemImage
 		json.NewDecoder(resp.Body).Decode(&images)
 		if len(images) <= 0 {
 			log.Println(Red + "     Primary image is missing." + Reset)
@@ -173,9 +152,9 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 
 func getRemoteImages(
 	client *http.Client,
-	config *Config,
-	item *Item,
-) ([]RemoteImage, error) {
+	config *config,
+	item *item,
+) ([]remoteImage, error) {
 
 	params := url.Values{}
 	params.Set("Type", "Primary")
@@ -208,7 +187,7 @@ func getRemoteImages(
 		return nil, fmt.Errorf("HTTP error: %s", resp.Status)
 	}
 
-	var result RemoteImagesResponse
+	var result remoteImagesResponse
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 		return nil, err
@@ -217,7 +196,7 @@ func getRemoteImages(
 	return result.Images, nil
 }
 
-func getBestImage(images []RemoteImage) *RemoteImage {
+func getBestImage(images []remoteImage) *remoteImage {
 	if len(images) == 0 {
 		return nil
 	}
@@ -225,7 +204,7 @@ func getBestImage(images []RemoteImage) *RemoteImage {
 	best := &images[0]
 	bestHeight := best.Height
 
-	var tmdbImages []*RemoteImage
+	var tmdbImages []*remoteImage
 	for _, image := range images {
 		if image.Height > bestHeight {
 			best = &image
@@ -248,9 +227,9 @@ func getBestImage(images []RemoteImage) *RemoteImage {
 
 func setRemoteImage(
 	client *http.Client,
-	config *Config,
-	item *Item,
-	image *RemoteImage,
+	config *config,
+	item *item,
+	image *remoteImage,
 ) error {
 
 	params := url.Values{}
@@ -288,11 +267,11 @@ func setRemoteImage(
 	return nil
 }
 
-func refreshItem(client *http.Client, config *Config, item *Item, itemStatus BadItem) error {
+func refreshItem(client *http.Client, config *config, item *item, itemStatus badItem) error {
 	needToCheck := false
 	respStatus := "ok"
 
-	if slices.Contains([]BadItem{BadTitle, BadOverview, BadAll}, itemStatus) {
+	if slices.Contains([]badItem{BadTitle, BadOverview, BadAll}, itemStatus) {
 		updateParams := url.Values{}
 		updateParams.Add("metadataRefreshMode", "FullRefresh")
 		updateParams.Add("replaceAllMetadata", "true")
@@ -315,7 +294,7 @@ func refreshItem(client *http.Client, config *Config, item *Item, itemStatus Bad
 		respStatus = resp.Status
 	}
 
-	if slices.Contains([]BadItem{BadImage, BadAll}, itemStatus) {
+	if slices.Contains([]badItem{BadImage, BadAll}, itemStatus) {
 		images, err := getRemoteImages(client, config, item)
 		if err != nil {
 			return err
