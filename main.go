@@ -18,7 +18,7 @@ var Version = "unknown"
 type Config struct {
 	APIKey             string `json:"apiKey"`
 	URL                string `json:"jellyfinURL"`
-	DesiredImageHeight uint16 `json:"desiredImageHeight"`
+	DesiredImageHeight uint32 `json:"desiredImageHeight"`
 	DaysToScan         uint8  `json:"daysToScan"`
 }
 
@@ -26,7 +26,7 @@ type Item struct {
 	ID           string     `json:"Id"`
 	Name         string     `json:"Name"`
 	SeriesName   string     `json:"SeriesName"`
-	SeasonNo     uint16     `json:"ParentIndexNumber"`
+	SeasonNo     uint8      `json:"ParentIndexNumber"`
 	EpisodeNo    uint16     `json:"IndexNumber"`
 	Overview     string     `json:"Overview"`
 	PremiereDate *time.Time `json:"PremiereDate"`
@@ -34,8 +34,9 @@ type Item struct {
 
 type ImageList struct {
 	Type   string `json:"ImageType"`
-	Height uint16 `json:"Height"`
-	Width  uint16 `json:"Width"`
+	Height uint32 `json:"Height"`
+	Width  uint32 `json:"Width"`
+	Size   uint32 `json:"Size"`
 }
 
 type ItemsResponse struct {
@@ -94,17 +95,8 @@ func main() {
 		if err == nil {
 			successCount++
 		} else {
-			if err.Error() != "No new data." {
-				fmt.Println("     Retrying in 2 seconds...")
-				time.Sleep(2 * time.Second)
-				err = refreshItem(client, &config, &item, itemStatus)
-			}
-			if err == nil {
-				successCount++
-			} else {
-				failCount++
-				fmt.Printf("     Better luck next time!\n\n")
-			}
+			failCount++
+			fmt.Printf("     Better luck next time!\n\n")
 		}
 	}
 	// Print a summary

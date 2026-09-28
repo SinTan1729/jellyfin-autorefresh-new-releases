@@ -32,8 +32,8 @@ const (
 type RemoteImage struct {
 	ProviderName string `json:"ProviderName"`
 	Url          string `json:"Url"`
-	Width        int    `json:"Width"`
-	Height       int    `json:"Height"`
+	Width        uint16 `json:"Width"`
+	Height       uint16 `json:"Height"`
 	Type         string `json:"Type"`
 }
 type RemoteImagesResponse struct {
@@ -153,7 +153,10 @@ func isItemFine(client *http.Client, config *Config, item *Item) BadItem {
 		for _, image := range images {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
-					log.Printf(Red+"     Primary image is of low quality (%dx%d)."+Reset, image.Width, image.Height)
+					log.Printf(Red+"     Primary image is of low resolution (%dx%d)."+Reset, image.Width, image.Height)
+					itemStatus = escalateBadness(&itemStatus)
+				} else if image.Size < 150*image.Height {
+					log.Printf(Red+"     Primary image is too small (%.1f KiB)."+Reset, (float64)(image.Size)/1024)
 					itemStatus = escalateBadness(&itemStatus)
 				} else {
 					break
@@ -220,21 +223,20 @@ func getBestImage(images []RemoteImage) *RemoteImage {
 	}
 
 	best := &images[0]
-	bestPixels := best.Width * best.Height
+	bestHeight := best.Height
 
 	var tmdbImages []*RemoteImage
 	for _, image := range images {
-		pixels := image.Width * image.Height
-		if pixels > bestPixels {
+		if image.Height > bestHeight {
 			best = &image
-			bestPixels = pixels
+			bestHeight = image.Height
 		}
 		if image.ProviderName == "TheMovieDb" {
 			tmdbImages = append(tmdbImages, &image)
 		}
 	}
 
-	if bestPixels == 0 {
+	if bestHeight == 0 {
 		if len(tmdbImages) > 0 {
 			return tmdbImages[rand.Intn(len(tmdbImages))]
 		}
@@ -322,7 +324,7 @@ func refreshItem(client *http.Client, config *Config, item *Item, itemStatus Bad
 		best := getBestImage(images)
 
 		if best == nil {
-			log.Println(Red + "    No remote images found." + Reset)
+			log.Println(Red + "     No remote images found." + Reset)
 			return errors.New("No remote images found")
 		}
 
