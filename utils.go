@@ -19,12 +19,6 @@ import (
 	"time"
 )
 
-var genericTitlePattern = regexp.MustCompile(`(?i)^\s*(episode|folge|épisode|episodio|epis[oó]dio|aflevering)\s*0*\d+\s*$`)
-
-func hasGenericTitle(name string) bool {
-	return genericTitlePattern.MatchString(strings.TrimSpace(name))
-}
-
 func loadConfig() config {
 	configDir, ok := os.LookupEnv("XDG_CONFIG_HOME")
 	if !ok {
@@ -57,28 +51,39 @@ func loadConfig() config {
 	return config
 }
 
-func fetchItems(client *http.Client, cfg *config, params *url.Values) []item {
-	req, err := http.NewRequest("GET", cfg.URL+"/Items", nil)
+func callRequest(client *http.Client, cfg *config, t string, path string, params *url.Values) ([]byte, error) {
+	req, err := http.NewRequest(t, cfg.URL+path, nil)
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
 	req.Header.Set("Authorization", `MediaBrowser Token="`+cfg.APIKey+`"`)
-	req.URL.RawQuery = params.Encode()
+	if params != nil {
+		req.URL.RawQuery = params.Encode()
+	}
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatalln(err)
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if !isSuccess(resp) {
-		log.Fatalln("Request failed. Please check the API key. \nError:", resp.Status)
+	if !slices.Contains([]int{200, 204}, resp.StatusCode) {
+		return nil, fmt.Errorf("Request failed. Please check the API key. \nError: %s", resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		return nil, err
+	}
+	return body, nil
+}
+
+func fetchItems(client *http.Client, cfg *config, params *url.Values) []item {
+	body, err := callRequest(client, cfg, "GET", "/Items", params)
+	if err != nil {
 		log.Fatalln(err)
 	}
+
 	var parsed itemsResponse
 	if err := json.Unmarshal(body, &parsed); err != nil {
 		log.Fatalln(err)
@@ -92,6 +97,10 @@ func fetchItems(client *http.Client, cfg *config, params *url.Values) []item {
 }
 
 func isItemFine(client *http.Client, config *config, item *item) badItem {
+	var genericTitlePattern = regexp.MustCompile(`(?i)^\s*(episode|folge|épisode|episodio|epis[oó]dio|aflevering)\s*0*\d+\s*$`)
+	hasGenericTitle := func(name string) bool {
+		return genericTitlePattern.MatchString(strings.TrimSpace(name))
+	}
 	escalateBadness := func(item *badItem) badItem {
 		if *item == FineItem {
 			return BadImage
@@ -109,22 +118,10 @@ func isItemFine(client *http.Client, config *config, item *item) badItem {
 		log.Println(Red + "     Overview is missing." + Reset)
 		itemStatus = BadOverview
 	}
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s/Items/%s/Images", config.URL, item.ID), nil)
-	if err != nil {
-		log.Println(Red+"  Request creation failed:", err, Reset)
-		itemStatus = escalateBadness(&itemStatus)
-	}
-	req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
-	resp, err := client.Do(req)
-	if err != nil {
-		log.Println(Red+"  Error getting item images", item, Reset)
-		itemStatus = escalateBadness(&itemStatus)
-	}
-	defer resp.Body.Close()
 
-	if isSuccess(resp) {
+	if body, err := callRequest(client, config, "GET", fmt.Sprintf("/Items/%s/Images", item.ID), nil); err == nil {
 		var images []itemImage
-		json.NewDecoder(resp.Body).Decode(&images)
+		json.Unmarshal(body, &images)
 		if len(images) <= 0 {
 			log.Println(Red + "     Primary image is missing." + Reset)
 			itemStatus = BadImage
@@ -134,7 +131,7 @@ func isItemFine(client *http.Client, config *config, item *item) badItem {
 				if image.Height < config.DesiredImageHeight {
 					log.Printf(Red+"     Primary image is of low resolution (%dx%d)."+Reset, image.Width, image.Height)
 					itemStatus = escalateBadness(&itemStatus)
-				} else if image.Size < 150*image.Height {
+				} else if image.Size < 100*image.Height {
 					log.Printf(Red+"     Primary image is too small (%.1f KiB)."+Reset, (float64)(image.Size)/1024)
 					itemStatus = escalateBadness(&itemStatus)
 				} else {
@@ -161,35 +158,18 @@ func getRemoteImages(
 	params.Set("Limit", "100")
 
 	endpoint := fmt.Sprintf(
-		"%s/Items/%s/RemoteImages?%s",
-		config.URL,
+		"/Items/%s/RemoteImages?%s",
 		item.ID,
 		params.Encode(),
 	)
 
-	req, err := http.NewRequest("GET", endpoint, nil)
+	body, err := callRequest(client, config, "GET", endpoint, &params)
 	if err != nil {
 		return nil, err
-	}
-
-	req.Header.Set(
-		"Authorization",
-		`MediaBrowser Token="`+config.APIKey+`"`,
-	)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if !isSuccess(resp) {
-		return nil, fmt.Errorf("HTTP error: %s", resp.Status)
 	}
 
 	var result remoteImagesResponse
-
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
 	}
 
@@ -233,100 +213,70 @@ func setRemoteImage(
 ) error {
 
 	params := url.Values{}
-
 	params.Set("Type", image.Type)
 	params.Set("ImageUrl", image.Url)
 
 	endpoint := fmt.Sprintf(
-		"%s/Items/%s/RemoteImages/Download?%s",
-		config.URL,
+		"/Items/%s/RemoteImages/Download?%s",
 		item.ID,
 		params.Encode(),
 	)
 
-	req, err := http.NewRequest("POST", endpoint, nil)
+	_, err := callRequest(client, config, "POST", endpoint, &params)
 	if err != nil {
 		return err
-	}
-
-	req.Header.Set(
-		"Authorization",
-		`MediaBrowser Token="`+config.APIKey+`"`,
-	)
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if !isSuccess(resp) {
-		return fmt.Errorf("HTTP error: %s", resp.Status)
 	}
 
 	return nil
 }
 
 func refreshItem(client *http.Client, config *config, item *item, itemStatus badItem) error {
-	needToCheck := false
-	respStatus := "ok"
+	var errState error
 
 	if slices.Contains([]badItem{BadTitle, BadOverview, BadAll}, itemStatus) {
 		updateParams := url.Values{}
 		updateParams.Add("metadataRefreshMode", "FullRefresh")
 		updateParams.Add("replaceAllMetadata", "true")
 
-		req, err := http.NewRequest("POST", fmt.Sprintf("%s/Items/%s/Refresh", config.URL, item.ID), nil)
-		if err != nil {
-			log.Println(Red+"  Request creation failed:", err, Reset)
-			return err
-		}
-		req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
-		req.URL.RawQuery = updateParams.Encode()
-
-		resp, err := client.Do(req)
+		_, err := callRequest(client, config, "POST", fmt.Sprintf("/Items/%s/Refresh", item.ID), &updateParams)
 		if err != nil {
 			log.Println(Red+"  Refresh failed:", err, Reset)
-			return err
+			errState = err
 		}
-		defer resp.Body.Close()
-		needToCheck = isSuccess(resp)
-		respStatus = resp.Status
 	}
 
 	if slices.Contains([]badItem{BadImage, BadAll}, itemStatus) {
 		images, err := getRemoteImages(client, config, item)
 		if err != nil {
-			return err
-		}
-
-		best := getBestImage(images)
-
-		if best == nil {
-			log.Println(Red + "     No remote images found." + Reset)
-			return errors.New("No remote images found")
-		}
-
-		if best.Width > 0 && best.Height > 0 {
-			fmt.Printf(
-				"     Selected image: %dx%d (%s)\n",
-				best.Width,
-				best.Height,
-				best.ProviderName,
-			)
+			errState = err
 		} else {
-			fmt.Printf(
-				"     Selected image: Unknown dimensions (%s)\n",
-				best.ProviderName,
-			)
+			best := getBestImage(images)
+
+			if best == nil {
+				log.Println(Red + "     No remote images found." + Reset)
+				return errors.New("No remote images found")
+			}
+
+			if best.Width > 0 && best.Height > 0 {
+				fmt.Printf(
+					"     Selected image: %dx%d (%s)\n",
+					best.Width,
+					best.Height,
+					best.ProviderName,
+				)
+			} else {
+				fmt.Printf(
+					"     Selected image: Unknown dimensions (%s)\n",
+					best.ProviderName,
+				)
+			}
+			if err := setRemoteImage(client, config, item, best); err != nil {
+				errState = err
+			}
 		}
-		if err := setRemoteImage(client, config, item, best); err != nil {
-			return err
-		}
-		needToCheck = true
 	}
 
-	if needToCheck {
+	if errState == nil {
 		// Wait five seconds so that the metadata is actually updated
 		time.Sleep(5 * time.Second)
 		// Check if the update was successful
@@ -343,11 +293,7 @@ func refreshItem(client *http.Client, config *config, item *item, itemStatus bad
 			return errors.New("No new data.")
 		}
 	} else {
-		fmt.Println(Red+"     Refresh failed:", respStatus, Reset)
-		return errors.New("HTTP Error " + respStatus)
+		fmt.Println(Red+"     Refresh failed:", errState, Reset)
+		return errState
 	}
-}
-
-func isSuccess(resp *http.Response) bool {
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
 }
