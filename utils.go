@@ -4,12 +4,13 @@
 package main
 
 import (
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
+	"math/rand/v2"
 	"net/http"
 	"net/url"
 	"os"
@@ -181,28 +182,30 @@ func getBestImage(images []remoteImage) *remoteImage {
 		return nil
 	}
 
-	best := &images[0]
-	bestHeight := best.Height
+	for i := range images {
+		images[i].sortSeed = rand.Uint32()
+	}
 
-	var tmdbImages []*remoteImage
-	for _, image := range images {
-		if image.Height > bestHeight {
-			best = &image
-			bestHeight = image.Height
-		}
-		if image.ProviderName == "TheMovieDb" {
-			tmdbImages = append(tmdbImages, &image)
+	providerRank := func(i remoteImage) int {
+		switch i.ProviderName {
+		case "TheMovieDb":
+			return 1
+		case "TheTVDB":
+			return 2
+		default:
+			return 3
 		}
 	}
 
-	if bestHeight == 0 {
-		if len(tmdbImages) > 0 {
-			return tmdbImages[rand.Intn(len(tmdbImages))]
-		}
-		return &images[rand.Intn(len(images))]
-	}
+	slices.SortFunc(images, func(a, b remoteImage) int {
+		return cmp.Or(
+			cmp.Compare(b.Height, a.Height),
+			cmp.Compare(providerRank(a), providerRank(b)),
+			cmp.Compare(a.sortSeed, b.sortSeed),
+		)
+	})
 
-	return best
+	return &images[0]
 }
 
 func setRemoteImage(

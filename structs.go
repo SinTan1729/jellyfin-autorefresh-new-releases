@@ -56,6 +56,7 @@ type remoteImage struct {
 	Width        uint16 `json:"Width"`
 	Height       uint16 `json:"Height"`
 	Type         string `json:"Type"`
+	sortSeed     uint32
 }
 type remoteImagesResponse struct {
 	Images []remoteImage `json:"Images"`
