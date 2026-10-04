@@ -52,12 +52,12 @@ func loadConfig() config {
 	return config
 }
 
-func callRequest(client *http.Client, cfg *config, t string, path string, params *url.Values) ([]byte, error) {
-	req, err := http.NewRequest(t, cfg.URL+path, nil)
+func callRequest(client *http.Client, config *config, t string, path string, params *url.Values) ([]byte, error) {
+	req, err := http.NewRequest(t, config.URL+path, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", `MediaBrowser Token="`+cfg.APIKey+`"`)
+	req.Header.Set("Authorization", `MediaBrowser Token="`+config.APIKey+`"`)
 	if params != nil {
 		req.URL.RawQuery = params.Encode()
 	}
@@ -79,8 +79,8 @@ func callRequest(client *http.Client, cfg *config, t string, path string, params
 	return body, nil
 }
 
-func fetchItems(client *http.Client, cfg *config, params *url.Values) []item {
-	body, err := callRequest(client, cfg, "GET", "/Items", params)
+func fetchItems(client *http.Client, config *config, params *url.Values) []item {
+	body, err := callRequest(client, config, "GET", "/Items", params)
 	if err != nil {
 		log.Fatalln(err)
 	}
