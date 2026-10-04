@@ -16,8 +16,8 @@ type item struct {
 	ID           string     `json:"Id"`
 	Name         string     `json:"Name"`
 	SeriesName   string     `json:"SeriesName"`
-	SeasonNo     uint8      `json:"ParentIndexNumber"`
-	EpisodeNo    uint16     `json:"IndexNumber"`
+	SeasonNo     uint32     `json:"ParentIndexNumber"`
+	EpisodeNo    uint32     `json:"IndexNumber"`
 	Overview     string     `json:"Overview"`
 	PremiereDate *time.Time `json:"PremiereDate"`
 }
@@ -64,8 +64,9 @@ const (
 type remoteImage struct {
 	ProviderName string `json:"ProviderName"`
 	Url          string `json:"Url"`
-	Width        uint16 `json:"Width"`
-	Height       uint16 `json:"Height"`
+	Width        uint32 `json:"Width"`
+	Height       uint32 `json:"Height"`
+	VoteCount    uint32 `json:"VoteCount"`
 	Type         string `json:"Type"`
 	sortSeed     uint32
 }

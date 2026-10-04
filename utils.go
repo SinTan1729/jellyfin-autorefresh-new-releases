@@ -184,7 +184,6 @@ func getRemoteImages(
 	if err := json.Unmarshal(body, &result); err != nil {
 		return nil, err
 	}
-
 	return result.Images, nil
 }
 
@@ -212,6 +211,7 @@ func getBestImage(images []remoteImage) *remoteImage {
 		return cmp.Or(
 			cmp.Compare(b.Height, a.Height),
 			cmp.Compare(providerRank(a), providerRank(b)),
+			cmp.Compare(b.VoteCount, a.VoteCount),
 			cmp.Compare(a.sortSeed, b.sortSeed),
 		)
 	})
@@ -274,16 +274,18 @@ func refreshItem(client *http.Client, config *config, item *item, itemStatus bad
 			if best.Width > 0 && best.Height > 0 {
 				printLog(
 					none, details,
-					"Selected image: %dx%d (%s)",
+					"Selected image: %dx%d (%s, Votes: %d)",
 					best.Width,
 					best.Height,
 					best.ProviderName,
+					best.VoteCount,
 				)
 			} else {
 				printLog(
 					none, details,
-					"Selected image: Unknown dimensions (%s)",
+					"Selected image: Unknown dimensions (%s, Votes: %d)",
 					best.ProviderName,
+					best.VoteCount,
 				)
 			}
 			if err := setRemoteImage(client, config, item, best); err != nil {
