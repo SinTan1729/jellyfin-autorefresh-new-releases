@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,7 +20,6 @@ func main() {
 		return
 	}
 
-	log.SetFlags(0)
 	config := loadConfig()
 
 	client := &http.Client{}
@@ -34,26 +32,28 @@ func main() {
 	queryParams.Add("minPremiereDate", cutoffDate)
 	dataAll := fetchItems(client, &config, &queryParams)
 
-	fmt.Println(Blue + "Jellyfin Autorefresh New Releases v" + Version + Reset)
-	fmt.Println(Blue + "https://github.com/SinTan1729/jellyfin-autorefresh-new-releases\n----------" + Reset)
-	fmt.Println(Blue+"Starting at", time.Now().Format(time.RFC1123)+Reset)
-	fmt.Println(Blue+"Connecting to", config.URL+Reset)
-	fmt.Printf(Blue+"Processing all episodes released in the last %d days.\n\n"+Reset, config.DaysToScan)
+	printLog(blue, base, "Jellyfin Autorefresh New Releases v%s", Version)
+	printLog(blue, base, "https://github.com/SinTan1729/jellyfin-autorefresh-new-releases\n----------")
+	printLog(blue, base, "Starting at %s", time.Now().Format(time.RFC1123))
+	printLog(blue, base, "Connecting to %s", config.URL)
+	printLog(blue, base, "Processing all episodes released in the last %d days.\n", config.DaysToScan)
 	var successCount, failCount, skipCount int
 	for i, item := range dataAll {
-		fmt.Printf(" %02d. ID: %s\n     Series: %s\n     Episode: S%02dE%02d - %s\n",
+		printLog(
+			none, header,
+			"%02d. ID: %s\n     Series: %s\n     Episode: S%02dE%02d - %s",
 			i+1, item.ID, item.SeriesName, item.SeasonNo, item.EpisodeNo, item.Name)
 		if item.PremiereDate != nil {
-			fmt.Printf("     Release Date: %s\n", item.PremiereDate.Local().Format("Monday, Jan 2"))
+			printLog(none, details, "Release Date: %s", item.PremiereDate.Local().Format("Monday, Jan 2"))
 		}
 
 		itemStatus := isItemFine(client, &config, &item)
-		if itemStatus == FineItem {
-			fmt.Printf(Green + "     All desired criteria are met. Skipping.\n\n" + Reset)
+		if itemStatus == fineItem {
+			printLog(green, details, "All desired criteria are met. Skipping.\n")
 			skipCount++
 			continue
 		} else {
-			fmt.Println(Red + "     Some desired criteria are not met. Requesting a refresh..." + Reset)
+			printLog(red, details, "Some desired criteria are not met. Requesting a refresh...")
 		}
 
 		err := refreshItem(client, &config, &item, itemStatus)
@@ -61,12 +61,12 @@ func main() {
 			successCount++
 		} else {
 			failCount++
-			fmt.Printf("     Better luck next time!\n\n")
+			printLog(none, details, "Better luck next time!\n")
 		}
 	}
 	// Print a summary
-	fmt.Println(Blue + "Summary:" + Reset)
-	fmt.Println(Blue+"  Skipped:", skipCount, Reset)
-	fmt.Println(Blue+"  Successful refreshes:", successCount, Reset)
-	fmt.Println(Blue+"  Failed refreshes:", failCount, Reset)
+	printLog(blue, base, "Summary:")
+	printLog(blue, summary, "Skipped: %d", skipCount)
+	printLog(blue, summary, "Successful refreshes: %d", successCount)
+	printLog(blue, summary, "Failed refreshes: %d", failCount)
 }

@@ -33,21 +33,32 @@ type itemsResponse struct {
 	Items []item `json:"Items"`
 }
 
+type color string
+
 const (
-	Reset = "\033[0m"
-	Red   = "\033[31m"
-	Green = "\033[32m"
-	Blue  = "\033[34m"
+	none  color = "\033[0m"
+	red   color = "\033[31m"
+	green color = "\033[32m"
+	blue  color = "\033[34m"
+)
+
+type level int
+
+const (
+	base    level = 0
+	header  level = 1
+	summary level = 2
+	details level = 5
 )
 
 type badItem int
 
 const (
-	FineItem    badItem = 0
-	BadOverview badItem = 1
-	BadTitle    badItem = 2
-	BadImage    badItem = 3
-	BadAll      badItem = 4
+	fineItem    badItem = 0
+	badOverview badItem = 1
+	badTitle    badItem = 2
+	badImage    badItem = 3
+	badAll      badItem = 4
 )
 
 type remoteImage struct {

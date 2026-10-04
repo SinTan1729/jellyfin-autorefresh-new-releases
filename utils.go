@@ -20,6 +20,17 @@ import (
 	"time"
 )
 
+func printLog(col color, level level, msg string, vars ...any) {
+	spaces := strings.Repeat(" ", int(level))
+	msg = fmt.Sprintf("%s%s", spaces, msg)
+	msg = fmt.Sprintf(msg, vars...)
+	if col != none {
+		fmt.Printf("%s%s%s\n", col, msg, none)
+	} else {
+		fmt.Println(msg)
+	}
+}
+
 func loadConfig() config {
 	configDir, ok := os.LookupEnv("XDG_CONFIG_HOME")
 	if !ok {
@@ -103,37 +114,37 @@ func isItemFine(client *http.Client, config *config, item *item) badItem {
 		return genericTitlePattern.MatchString(strings.TrimSpace(name))
 	}
 	escalateBadness := func(item *badItem) badItem {
-		if *item == FineItem {
-			return BadImage
+		if *item == fineItem {
+			return badImage
 		} else {
-			return BadAll
+			return badAll
 		}
 	}
 
-	itemStatus := FineItem
+	itemStatus := fineItem
 	if hasGenericTitle(item.Name) {
-		log.Println(Red + "     Title looks like a generic placeholder." + Reset)
-		itemStatus = BadTitle
+		printLog(red, details, "Title looks like a generic placeholder.")
+		itemStatus = badTitle
 	}
 	if strings.TrimSpace(item.Overview) == "" {
-		log.Println(Red + "     Overview is missing." + Reset)
-		itemStatus = BadOverview
+		printLog(red, details, "Overview is missing.")
+		itemStatus = badOverview
 	}
 
 	if body, err := callRequest(client, config, "GET", fmt.Sprintf("/Items/%s/Images", item.ID), nil); err == nil {
 		var images []itemImage
 		json.Unmarshal(body, &images)
 		if len(images) <= 0 {
-			log.Println(Red + "     Primary image is missing." + Reset)
-			itemStatus = BadImage
+			printLog(red, details, "Primary image is missing.")
+			itemStatus = badImage
 		}
 		for _, image := range images {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
-					log.Printf(Red+"     Primary image is of low resolution (%dx%d)."+Reset, image.Width, image.Height)
+					printLog(red, details, "Primary image is of low resolution (%dx%d).", image.Width, image.Height)
 					itemStatus = escalateBadness(&itemStatus)
 				} else if image.Size < 100*image.Height {
-					log.Printf(Red+"     Primary image is too small (%.1f KiB)."+Reset, (float64)(image.Size)/1024)
+					printLog(red, details, "Primary image is too small (%.1f KiB).", (float64)(image.Size)/1024)
 					itemStatus = escalateBadness(&itemStatus)
 				} else {
 					break
@@ -141,7 +152,7 @@ func isItemFine(client *http.Client, config *config, item *item) badItem {
 			}
 		}
 	} else {
-		log.Println(Red + "     Primary image is missing." + Reset)
+		printLog(red, details, "Primary image is missing.")
 		itemStatus = escalateBadness(&itemStatus)
 	}
 
@@ -236,19 +247,19 @@ func setRemoteImage(
 func refreshItem(client *http.Client, config *config, item *item, itemStatus badItem) error {
 	var errState error
 
-	if slices.Contains([]badItem{BadTitle, BadOverview, BadAll}, itemStatus) {
+	if slices.Contains([]badItem{badTitle, badOverview, badAll}, itemStatus) {
 		updateParams := url.Values{}
 		updateParams.Add("metadataRefreshMode", "FullRefresh")
 		updateParams.Add("replaceAllMetadata", "true")
 
 		_, err := callRequest(client, config, "POST", fmt.Sprintf("/Items/%s/Refresh", item.ID), &updateParams)
 		if err != nil {
-			log.Println(Red+"  Refresh failed:", err, Reset)
+			printLog(red, details, "  Refresh failed:", err)
 			errState = err
 		}
 	}
 
-	if slices.Contains([]badItem{BadImage, BadAll}, itemStatus) {
+	if slices.Contains([]badItem{badImage, badAll}, itemStatus) {
 		images, err := getRemoteImages(client, config, item)
 		if err != nil {
 			errState = err
@@ -256,20 +267,22 @@ func refreshItem(client *http.Client, config *config, item *item, itemStatus bad
 			best := getBestImage(images)
 
 			if best == nil {
-				log.Println(Red + "     No remote images found." + Reset)
+				printLog(red, details, "No remote images found.")
 				return errors.New("No remote images found")
 			}
 
 			if best.Width > 0 && best.Height > 0 {
-				fmt.Printf(
-					"     Selected image: %dx%d (%s)\n",
+				printLog(
+					none, details,
+					"Selected image: %dx%d (%s)",
 					best.Width,
 					best.Height,
 					best.ProviderName,
 				)
 			} else {
-				fmt.Printf(
-					"     Selected image: Unknown dimensions (%s)\n",
+				printLog(
+					none, details,
+					"Selected image: Unknown dimensions (%s)",
 					best.ProviderName,
 				)
 			}
@@ -287,16 +300,16 @@ func refreshItem(client *http.Client, config *config, item *item, itemStatus bad
 		queryParams.Add("ids", item.ID)
 		queryParams.Add("fields", "Overview")
 		updatedItem := fetchItems(client, config, &queryParams)[0]
-		if isItemFine(client, config, &updatedItem) == FineItem {
-			fmt.Println("     Refresh successful!")
-			fmt.Println(Green + "     The episode now satisfies all the desired criteria.\n" + Reset)
+		if isItemFine(client, config, &updatedItem) == fineItem {
+			printLog(none, details, "Refresh successful!")
+			printLog(green, details, "The episode now satisfies all the desired criteria.\n")
 			return nil
 		} else {
-			fmt.Println(Red + "     The desired criteria are still not met." + Reset)
+			printLog(red, details, "The desired criteria are still not met.")
 			return errors.New("No new data.")
 		}
 	} else {
-		fmt.Println(Red+"     Refresh failed:", errState, Reset)
+		printLog(red, details, "Refresh failed:", errState)
 		return errState
 	}
 }
