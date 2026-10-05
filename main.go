@@ -55,7 +55,8 @@ func main() {
 			skipCount++
 			continue
 		} else {
-			printLog(red, details, "Some desired criteria are not met. Requesting a refresh...")
+			printLog(red, details, "Some desired criteria are not met.")
+			printLog(none, details, "Requesting a refresh...")
 		}
 
 		err := refreshItem(client, &config, &item, itemStatus)
