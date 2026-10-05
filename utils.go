@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math/rand/v2"
 	"net/http"
 	"net/url"
@@ -31,6 +30,11 @@ func printLog(col color, level level, msg string, vars ...any) {
 	}
 }
 
+func fatalLog(col color, level level, msg string, vars ...any) {
+	printLog(col, level, msg, vars...)
+	os.Exit(1)
+}
+
 func loadConfig() config {
 	configDir, ok := os.LookupEnv("XDG_CONFIG_HOME")
 	if !ok {
@@ -38,7 +42,7 @@ func loadConfig() config {
 	}
 	file, err := os.Open(configDir + "/jellyfin-autorefresh-new-releases/config.json")
 	if err != nil {
-		log.Fatalln("Could not load config from " + configDir + "/jellyfin-autorefresh-new-releases/config.json. Quitting!")
+		fatalLog(red, base, "Could not load config from %s /jellyfin-autorefresh-new-releases/config.json. Quitting!", configDir)
 	}
 	defer file.Close()
 
@@ -46,15 +50,15 @@ func loadConfig() config {
 	decoder := json.NewDecoder(file)
 	err = decoder.Decode(&config)
 	if err != nil {
-		log.Fatalln("Error reading config:", err)
+		fatalLog(red, base, "Error reading config: %s", configDir)
 	}
 
 	u, err := url.ParseRequestURI(config.URL)
 	if err != nil || u.Scheme == "" || u.Host == "" {
-		log.Fatalln("Invalid URL was provided!")
+		fatalLog(red, base, "Invalid URL was provided!")
 	}
 	if config.APIKey == "" {
-		log.Fatalln("Empty API key was provided!")
+		fatalLog(red, base, "Empty API key was provided!")
 	}
 	if config.DaysToScan > 14 {
 		config.DaysToScan = 14 // Sensible upper limit
@@ -93,12 +97,12 @@ func callRequest(client *http.Client, config *config, t string, path string, par
 func fetchItems(client *http.Client, config *config, params *url.Values) []item {
 	body, err := callRequest(client, config, "GET", "/Items", params)
 	if err != nil {
-		log.Fatalln(err)
+		fatalLog(red, base, "%s", err)
 	}
 
 	var parsed itemsResponse
 	if err := json.Unmarshal(body, &parsed); err != nil {
-		log.Fatalln(err)
+		fatalLog(red, base, "%s", err)
 	}
 
 	items := parsed.Items

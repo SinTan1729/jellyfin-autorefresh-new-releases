@@ -4,7 +4,6 @@
 package main
 
 import (
-	"fmt"
 	"math"
 	"net/http"
 	"net/url"
@@ -17,7 +16,7 @@ var Version = "unknown"
 
 func main() {
 	if len(os.Args) > 1 && slices.Contains([]string{"--version", "-V"}, os.Args[1]) {
-		fmt.Println(Version)
+		printLog(none, base, "%s", Version)
 		return
 	}
 
