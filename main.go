@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"net/url"
 	"os"
@@ -37,12 +38,14 @@ func main() {
 	printLog(blue, base, "Starting at %s", time.Now().Format(time.RFC1123))
 	printLog(blue, base, "Connecting to %s", config.URL)
 	printLog(blue, base, "Processing all episodes released in the last %d days.\n", config.DaysToScan)
+
+	pad := level(math.Floor(math.Log10(float64(len(dataAll)))) + 1)
+	details += pad
 	var successCount, failCount, skipCount int
 	for i, item := range dataAll {
-		printLog(
-			none, header,
-			"%02d. ID: %s\n     Series: %s\n     Episode: S%02dE%02d - %s",
-			i+1, item.ID, item.SeriesName, item.SeasonNo, item.EpisodeNo, item.Name)
+		printLog(none, header, "%0*d. ID: %s", pad, i+1, item.ID)
+		printLog(none, details, "Series: %s", item.SeriesName)
+		printLog(none, details, "Episode: S%02dE%02d - %s", item.SeasonNo, item.EpisodeNo, item.Name)
 		if item.PremiereDate != nil {
 			printLog(none, details, "Release Date: %s", item.PremiereDate.Local().Format("Monday, Jan 2"))
 		}

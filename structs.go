@@ -44,11 +44,12 @@ const (
 
 type level int
 
+var details level = 3
+
 const (
 	base    level = 0
 	header  level = 1
 	summary level = 2
-	details level = 5
 )
 
 type badItem int
