@@ -16,7 +16,11 @@ var Version = "unknown"
 
 func main() {
 	if len(os.Args) > 1 && slices.Contains([]string{"--version", "-V"}, os.Args[1]) {
-		printLog(none, base, "%s", Version)
+		if Version != "unknown" {
+			printLog(none, base, "Jellyfin Autorefresh New Releases v%s", Version)
+		} else {
+			printLog(none, base, "Jellyfin Autorefresh New Releases (dev)")
+		}
 		return
 	}
 
