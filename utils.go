@@ -19,30 +19,25 @@ import (
 	"time"
 )
 
-func printEpisode(domain string, item item) {
-	spaces := strings.Repeat(" ", int(details))
-	text := fmt.Sprintf("Episode: S%02dE%02d - %s", item.SeasonNo, item.EpisodeNo, item.Name)
-	link := fmt.Sprintf("%s/web/#/details?id=%s", domain, item.ID)
-	if domain == "" {
-		fmt.Printf("%s%s\n", spaces, text)
-	} else {
-		fmt.Printf("%s\x1b]8;;%s\x07%s\x1b]8;;\x07\n", spaces, link, text)
-	}
+func createLink(domain string, id string) string {
+	return fmt.Sprintf("%s/web/#/details?id=%s", domain, id)
 }
 
-func printLog(col color, level level, msg string, vars ...any) {
+func printLog(col color, level level, link *string, msg string, vars ...any) {
 	spaces := strings.Repeat(" ", int(level))
-	msg = fmt.Sprintf("%s%s", spaces, msg)
 	msg = fmt.Sprintf(msg, vars...)
 	if col != none {
-		fmt.Printf("%s%s%s\n", col, msg, none)
+		msg = fmt.Sprintf("%s%s%s", col, msg, none)
+	}
+	if link != nil {
+		fmt.Printf("%s\x1b]8;;%s\x07%s\x1b]8;;\x07\n", spaces, *link, msg)
 	} else {
-		fmt.Println(msg)
+		fmt.Printf("%s%s\n", spaces, msg)
 	}
 }
 
 func fatalLog(col color, level level, msg string, vars ...any) {
-	printLog(col, level, msg, vars...)
+	printLog(col, level, nil, msg, vars...)
 	os.Exit(1)
 }
 
@@ -138,28 +133,28 @@ func isItemFine(client *http.Client, config *config, item *item) badItem {
 
 	itemStatus := fineItem
 	if hasGenericTitle(item.Name) {
-		printLog(red, details, "Title looks like a generic placeholder.")
+		printLog(red, details, nil, "Title looks like a generic placeholder.")
 		itemStatus = badTitle
 	}
 	if strings.TrimSpace(item.Overview) == "" {
-		printLog(red, details, "Overview is missing.")
+		printLog(red, details, nil, "Overview is missing.")
 		itemStatus = badOverview
 	}
 
-	if body, err := callRequest(client, config, "GET", fmt.Sprintf("/Items/%s/Images", item.ID), nil); err == nil {
+	if body, err := callRequest(client, config, "GET", fmt.Sprintf("/Items/%s/Images", item.EpisodeID), nil); err == nil {
 		var images []itemImage
 		json.Unmarshal(body, &images)
 		if len(images) <= 0 {
-			printLog(red, details, "Primary image is missing.")
+			printLog(red, details, nil, "Primary image is missing.")
 			itemStatus = badImage
 		}
 		for _, image := range images {
 			if image.Type == "Primary" {
 				if image.Height < config.DesiredImageHeight {
-					printLog(red, details, "Primary image is of low resolution (%dx%d).", image.Width, image.Height)
+					printLog(red, details, nil, "Primary image is of low resolution (%dx%d).", image.Width, image.Height)
 					itemStatus = escalateBadness(&itemStatus)
 				} else if image.Size < 100*image.Height {
-					printLog(red, details, "Primary image is too small (%.1f KiB).", (float64)(image.Size)/1024)
+					printLog(red, details, nil, "Primary image is too small (%.1f KiB).", (float64)(image.Size)/1024)
 					itemStatus = escalateBadness(&itemStatus)
 				} else {
 					break
@@ -167,7 +162,7 @@ func isItemFine(client *http.Client, config *config, item *item) badItem {
 			}
 		}
 	} else {
-		printLog(red, details, "Primary image is missing.")
+		printLog(red, details, nil, "Primary image is missing.")
 		itemStatus = escalateBadness(&itemStatus)
 	}
 
@@ -186,7 +181,7 @@ func getRemoteImages(
 
 	endpoint := fmt.Sprintf(
 		"/Items/%s/RemoteImages?%s",
-		item.ID,
+		item.EpisodeID,
 		params.Encode(),
 	)
 
@@ -247,7 +242,7 @@ func setRemoteImage(
 
 	endpoint := fmt.Sprintf(
 		"/Items/%s/RemoteImages/Download?%s",
-		item.ID,
+		item.EpisodeID,
 		params.Encode(),
 	)
 
@@ -267,9 +262,9 @@ func refreshItem(client *http.Client, config *config, item *item, itemStatus bad
 		updateParams.Add("metadataRefreshMode", "FullRefresh")
 		updateParams.Add("replaceAllMetadata", "true")
 
-		_, err := callRequest(client, config, "POST", fmt.Sprintf("/Items/%s/Refresh", item.ID), &updateParams)
+		_, err := callRequest(client, config, "POST", fmt.Sprintf("/Items/%s/Refresh", item.EpisodeID), &updateParams)
 		if err != nil {
-			printLog(red, details, "  Refresh failed:", err)
+			printLog(red, details, nil, "  Refresh failed:", err)
 			errState = err
 		}
 	}
@@ -282,13 +277,17 @@ func refreshItem(client *http.Client, config *config, item *item, itemStatus bad
 			best := getBestImage(images)
 
 			if best == nil {
-				printLog(red, details, "No remote images found.")
+				printLog(red, details, nil, "No remote images found.")
 				return errors.New("No remote images found")
 			}
 
+			var imageLink string
+			if config.HyperlinkDomain != "" {
+				imageLink = best.Url
+			}
 			if best.Width > 0 && best.Height > 0 {
 				printLog(
-					none, details,
+					none, details, &imageLink,
 					"Selected image: %dx%d (%s, Votes: %d)",
 					best.Width,
 					best.Height,
@@ -297,7 +296,7 @@ func refreshItem(client *http.Client, config *config, item *item, itemStatus bad
 				)
 			} else {
 				printLog(
-					none, details,
+					none, details, &imageLink,
 					"Selected image: Unknown dimensions (%s, Votes: %d)",
 					best.ProviderName,
 					best.VoteCount,
@@ -314,19 +313,19 @@ func refreshItem(client *http.Client, config *config, item *item, itemStatus bad
 		time.Sleep(5 * time.Second)
 		// Check if the update was successful
 		queryParams := url.Values{}
-		queryParams.Add("ids", item.ID)
+		queryParams.Add("ids", item.EpisodeID)
 		queryParams.Add("fields", "Overview")
 		updatedItem := fetchItems(client, config, &queryParams)[0]
 		if isItemFine(client, config, &updatedItem) == fineItem {
-			printLog(none, details, "Refresh successful!")
-			printLog(green, details, "The episode now satisfies all the desired criteria.\n")
+			printLog(none, details, nil, "Refresh successful!")
+			printLog(green, details, nil, "The episode now satisfies all the desired criteria.\n")
 			return nil
 		} else {
-			printLog(red, details, "The desired criteria are still not met.")
+			printLog(red, details, nil, "The desired criteria are still not met.")
 			return errors.New("No new data.")
 		}
 	} else {
-		printLog(red, details, "Refresh failed:", errState)
+		printLog(red, details, nil, "Refresh failed:", errState)
 		return errState
 	}
 }

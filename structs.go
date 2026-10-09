@@ -14,8 +14,9 @@ type config struct {
 }
 
 type item struct {
-	ID           string     `json:"Id"`
+	EpisodeID    string     `json:"Id"`
 	Name         string     `json:"Name"`
+	SeriesID     string     `json:"SeriesId"`
 	SeriesName   string     `json:"SeriesName"`
 	SeasonNo     uint32     `json:"ParentIndexNumber"`
 	EpisodeNo    uint32     `json:"IndexNumber"`
