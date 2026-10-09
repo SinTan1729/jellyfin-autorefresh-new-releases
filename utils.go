@@ -19,6 +19,17 @@ import (
 	"time"
 )
 
+func printEpisode(domain string, item item) {
+	spaces := strings.Repeat(" ", int(details))
+	text := fmt.Sprintf("Episode: S%02dE%02d - %s", item.SeasonNo, item.EpisodeNo, item.Name)
+	link := fmt.Sprintf("%s/web/#/details?id=%s", domain, item.ID)
+	if domain == "" {
+		fmt.Printf("%s%s\n", spaces, text)
+	} else {
+		fmt.Printf("%s\x1b]8;;%s\x07%s\x1b]8;;\x07\n", spaces, link, text)
+	}
+}
+
 func printLog(col color, level level, msg string, vars ...any) {
 	spaces := strings.Repeat(" ", int(level))
 	msg = fmt.Sprintf("%s%s", spaces, msg)

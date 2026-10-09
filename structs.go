@@ -10,6 +10,7 @@ type config struct {
 	URL                string `json:"jellyfinURL"`
 	DesiredImageHeight uint32 `json:"desiredImageHeight"`
 	DaysToScan         uint8  `json:"daysToScan"`
+	HyperlinkDomain    string `json:"hyperlinkDomain"`
 }
 
 type item struct {

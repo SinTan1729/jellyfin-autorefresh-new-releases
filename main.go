@@ -48,7 +48,7 @@ func main() {
 	for i, item := range dataAll {
 		printLog(none, header, "%0*d. ID: %s", pad, i+1, item.ID)
 		printLog(none, details, "Series: %s", item.SeriesName)
-		printLog(none, details, "Episode: S%02dE%02d - %s", item.SeasonNo, item.EpisodeNo, item.Name)
+		printEpisode(config.HyperlinkDomain, item)
 		if item.PremiereDate != nil {
 			printLog(none, details, "Release Date: %s", item.PremiereDate.Local().Format("Monday, Jan 2"))
 		}

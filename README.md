@@ -55,12 +55,15 @@ the following.
 
 ```json
 {
-  "jellyfinURL": "<jellyfin-instance-uri>",
-  "apiKey": "<api-key>",
-  "desiredImageHeight": <height>,
-  "daysToScan": <days>
+  "jellyfinURL": "http://localhost:8096",
+  "apiKey": "some-api-key",
+  "desiredImageHeight": 1080,
+  "daysToScan": 2,
+  "hyperlinkDomain": "https://jellyfin.domain.tld"
 }
 ```
+
+The `hyperlinkDomain` entry is optional. If provided, episode names will be clickable. It might not work properly with all terminal setups.
 
 It's recommended that you use a local/internal URI for better performance.
 
