@@ -63,7 +63,8 @@ the following.
 }
 ```
 
-The `hyperlinkDomain` entry is optional. If provided, episode names will be clickable. It might not work properly with all terminal setups.
+The `hyperlinkDomain` entry is optional. If provided, some items in the printed output will be hyperlinked. It might not work properly
+with all terminal setups.
 
 It's recommended that you use a local/internal URI for better performance.
 
