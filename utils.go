@@ -23,9 +23,26 @@ func createLink(domain string, id string) string {
 	return fmt.Sprintf("%s/web/#/details?id=%s", domain, id)
 }
 
+var formatVerb = regexp.MustCompile(
+	`%[+#\- 0]*\d*(?:\.\d*)?[%vTtbcdoOqxXUeEfFgGspw]`,
+)
+
+func formatMessage(msg string, vars ...any) string {
+	if len(vars) == 0 {
+		return msg
+	}
+	if formatVerb.MatchString(msg) {
+		return fmt.Sprintf(msg, vars...)
+	}
+	return strings.TrimSuffix(
+		fmt.Sprintln(append([]any{msg}, vars...)...),
+		"\n",
+	)
+}
+
 func printLog(col color, level level, link *string, msg string, vars ...any) {
 	spaces := strings.Repeat(" ", int(level))
-	msg = fmt.Sprintf(msg, vars...)
+	msg = formatMessage(msg, vars...)
 	if col != none {
 		msg = fmt.Sprintf("%s%s%s", col, msg, none)
 	}
@@ -118,8 +135,9 @@ func fetchItems(client *http.Client, config *config, params *url.Values) []item 
 	return items
 }
 
+var genericTitlePattern = regexp.MustCompile(`(?i)^\s*(episode|folge|épisode|episodio|epis[oó]dio|aflevering)\s*0*\d+\s*$`)
+
 func isItemFine(client *http.Client, config *config, item *item) badItem {
-	var genericTitlePattern = regexp.MustCompile(`(?i)^\s*(episode|folge|épisode|episodio|epis[oó]dio|aflevering)\s*0*\d+\s*$`)
 	hasGenericTitle := func(name string) bool {
 		return genericTitlePattern.MatchString(strings.TrimSpace(name))
 	}
@@ -278,37 +296,37 @@ func refreshItem(client *http.Client, config *config, item *item, itemStatus bad
 
 			if best == nil {
 				printLog(red, details, nil, "No remote images found.")
-				return errors.New("No remote images found")
-			}
-
-			var imageLink string
-			if config.HyperlinkDomain != "" {
-				imageLink = best.Url
-			}
-			if best.Width > 0 && best.Height > 0 {
-				printLog(
-					none, details, &imageLink,
-					"Selected image: %dx%d (%s, Votes: %d)",
-					best.Width,
-					best.Height,
-					best.ProviderName,
-					best.VoteCount,
-				)
+				errState = errors.New("No remote images found.")
 			} else {
-				printLog(
-					none, details, &imageLink,
-					"Selected image: Unknown dimensions (%s, Votes: %d)",
-					best.ProviderName,
-					best.VoteCount,
-				)
-			}
-			if err := setRemoteImage(client, config, item, best); err != nil {
-				errState = err
+				var imageLink string
+				if config.HyperlinkDomain != "" {
+					imageLink = best.Url
+				}
+				if best.Width > 0 && best.Height > 0 {
+					printLog(
+						none, details, &imageLink,
+						"Selected image: %dx%d (%s, Votes: %d)",
+						best.Width,
+						best.Height,
+						best.ProviderName,
+						best.VoteCount,
+					)
+				} else {
+					printLog(
+						none, details, &imageLink,
+						"Selected image: Unknown dimensions (%s, Votes: %d)",
+						best.ProviderName,
+						best.VoteCount,
+					)
+				}
+				if err := setRemoteImage(client, config, item, best); err != nil {
+					errState = err
+				}
 			}
 		}
 	}
 
-	if errState == nil {
+	if errState == nil || errState.Error() == "No remote images found." {
 		// Wait five seconds so that the metadata is actually updated
 		time.Sleep(5 * time.Second)
 		// Check if the update was successful
