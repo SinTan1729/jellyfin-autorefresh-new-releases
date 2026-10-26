@@ -57,7 +57,7 @@ func main() {
 		}
 		printLog(none, header, nil, "%0*d. ID: %s", pad, i+1, item.EpisodeID)
 		printLog(none, details, &seriesLink, "Series: %s", item.SeriesName)
-		printLog(none, details, &episodeLink, "Episode: S%02dE%02d - %s", item.SeasonNo, item.EpisodeNo, item.Name)
+		printLog(none, details, &episodeLink, "Episode: [S%02dE%02d] %s", item.SeasonNo, item.EpisodeNo, item.Name)
 		if item.PremiereDate != nil {
 			printLog(none, details, nil, "Release Date: %s", item.PremiereDate.Local().Format("Monday, Jan 2"))
 		}
