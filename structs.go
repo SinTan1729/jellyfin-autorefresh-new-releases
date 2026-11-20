@@ -22,6 +22,7 @@ type item struct {
 	EpisodeNo    uint32     `json:"IndexNumber"`
 	Overview     string     `json:"Overview"`
 	PremiereDate *time.Time `json:"PremiereDate"`
+	Tags         []string   `json:"Tags"`
 }
 
 type itemImage struct {

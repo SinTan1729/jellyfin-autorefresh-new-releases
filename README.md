@@ -70,6 +70,9 @@ It's recommended that you use a local/internal URI for better performance.
 
 With proper config in place, just run `jellyfin-autorefresh`. You may want to run it periodically using a cronjob or equivalent.
 
+The app checks for generic titles like "Episode 1" and tries to refresh. If a series genuinely uses generic titles, add the tag
+`generic episode names` to the series.
+
 # Notes
 
 - I haven't used any external packages, everything is written in pure Go, using the Go Standard Library. I'll try to keep it this way.

@@ -137,10 +137,24 @@ func fetchItems(client *http.Client, config *config, params *url.Values) []item 
 
 var genericTitlePattern = regexp.MustCompile(`(?i)^\s*(episode|folge|épisode|episodio|epis[oó]dio|aflevering)\s*0*\d+\s*$`)
 
-func isItemFine(client *http.Client, config *config, item *item) badItem {
-	hasGenericTitle := func(name string) bool {
-		return genericTitlePattern.MatchString(strings.TrimSpace(name))
+func hasGenericTitle(client *http.Client, config *config, episode *item) bool {
+	generic := genericTitlePattern.MatchString(strings.TrimSpace(episode.Name))
+	if generic {
+		params := url.Values{}
+		params.Set("ids", episode.SeriesID)
+		params.Set("fields", "Tags")
+		var res itemsResponse
+		var series item
+		if body, err := callRequest(client, config, "GET", "/Items", &params); err == nil {
+			json.Unmarshal(body, &res)
+			series = res.Items[0]
+		}
+		return !slices.Contains(series.Tags, "generic episode names")
 	}
+	return generic
+}
+
+func isItemFine(client *http.Client, config *config, item *item) badItem {
 	escalateBadness := func(item *badItem) badItem {
 		if *item == fineItem {
 			return badImage
@@ -150,7 +164,7 @@ func isItemFine(client *http.Client, config *config, item *item) badItem {
 	}
 
 	itemStatus := fineItem
-	if hasGenericTitle(item.Name) {
+	if hasGenericTitle(client, config, item) {
 		printLog(red, details, nil, "Title looks like a generic placeholder.")
 		itemStatus = badTitle
 	}
